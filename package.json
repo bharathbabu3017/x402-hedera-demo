@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "agents": "NODE_NO_WARNINGS=1 tsx watch agents/index.ts",
     "create-account": "tsx scripts/create-seller-account.ts",
     "db:reset": "rm -rf data && echo 'marketplace db cleared \u2014 next start reseeds'",
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/server/index.ts",
@@ -21,13 +22,15 @@
     "web"
   ],
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@hono/node-server": "^1.13.0",
     "@x402/core": "2.16.0",
     "@x402/fetch": "2.16.0",
     "@x402/hedera": "2.16.0",
     "@x402/hono": "2.16.0",
     "dotenv": "^16.4.0",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
