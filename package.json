@@ -1,17 +1,19 @@
 {
-  "name": "x402-financial-data-server",
+  "name": "x402-agent-marketplace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server/index.ts",
-    "start": "tsx src/server/index.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "create-account": "tsx scripts/create-seller-account.ts",
+    "db:reset": "rm -rf data && echo 'marketplace db cleared \u2014 next start reseeds'",
+    "dev": "NODE_NO_WARNINGS=1 tsx watch src/server/index.ts",
     "e2e": "tsx scripts/e2e-pay.ts",
-    "web:dev": "npm run dev -w web",
+    "start": "NODE_NO_WARNINGS=1 tsx src/server/index.ts",
+    "test": "NODE_NO_WARNINGS=1 vitest run",
+    "test:watch": "NODE_NO_WARNINGS=1 vitest",
+    "typecheck": "tsc --noEmit",
     "web:build": "npm run build -w web",
+    "web:dev": "npm run dev -w web",
     "web:preview": "npm run preview -w web",
     "web:typecheck": "npm run typecheck -w web"
   },
@@ -32,5 +34,9 @@
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "description": "An open marketplace where AI agents discover, hire and pay other agents per call, settled in HBAR over x402.",
+  "engines": {
+    "node": ">=22.5.0"
   }
 }
