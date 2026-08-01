@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import Nav from "../components/Nav.astro";
+import WalletBar from "../components/WalletBar.astro";
 
 const examples = [
   { label: "Live market price", task: "What is bitcoin trading at right now?" },
@@ -14,31 +15,12 @@ const examples = [
 >
   <Nav />
   <main class="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-4xl flex-col px-6">
-    <!-- wallet -->
-    <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-border py-3">
-      <div class="flex items-center gap-2.5">
-        <span id="wallet-dot" class="size-1.5 rounded-full bg-faint"></span>
-        <div>
-          <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Demo wallet</div>
-          <a id="wallet-account" href="#" target="_blank" rel="noopener"
-             class="block font-mono text-sm text-accent hover:underline">connecting…</a>
-        </div>
-      </div>
-      <div class="flex items-center gap-8">
-        <div>
-          <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Balance</div>
-          <div id="wallet-balance" class="tabular font-mono text-sm font-medium">—</div>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Budget / task</div>
-          <div id="wallet-budget" class="tabular font-mono text-sm font-medium">—</div>
-        </div>
-        <label class="flex cursor-pointer items-center gap-2 font-mono text-[11px] text-muted">
-          <input id="show-protocol" type="checkbox" checked class="accent-[#4338ca]" />
-          show protocol
-        </label>
-      </div>
-    </div>
+    <WalletBar>
+      <label class="flex cursor-pointer items-center gap-2 font-mono text-[11px] text-muted">
+        <input id="show-protocol" type="checkbox" checked class="accent-[#4338ca]" />
+        show protocol
+      </label>
+    </WalletBar>
 
     <!-- transcript -->
     <div id="transcript" class="flex-1 space-y-4 py-8">
@@ -79,7 +61,7 @@ const examples = [
 </Base>
 
 <script>
-  import { getWallet, streamChat, GatewayDown, type BuyerEvent } from "../lib/api.ts";
+  import { streamChat, GatewayDown, type BuyerEvent } from "../lib/api.ts";
   import { formatHbar } from "../lib/format.ts";
   import { site } from "../data/site.ts";
 
@@ -96,28 +78,6 @@ const examples = [
     );
 
   const json = (v: unknown) => esc(JSON.stringify(v, null, 2));
-
-  // ── wallet ────────────────────────────────────────────────────────────────
-  const refreshWallet = async () => {
-    const account = document.getElementById("wallet-account") as HTMLAnchorElement;
-    const dot = document.getElementById("wallet-dot")!;
-    try {
-      const w = await getWallet();
-      account.textContent = w.accountId;
-      account.href = w.accountUrl;
-      account.className = "block font-mono text-sm text-accent hover:underline";
-      dot.className = "size-1.5 rounded-full bg-accent";
-      document.getElementById("wallet-balance")!.textContent =
-        w.balanceTinybar === null ? "unavailable" : formatHbar(w.balanceTinybar);
-      document.getElementById("wallet-budget")!.textContent = formatHbar(w.budgetTinybar);
-    } catch {
-      account.textContent = "buying agent offline";
-      account.className = "block font-mono text-sm text-muted";
-      account.removeAttribute("href");
-      dot.className = "size-1.5 rounded-full bg-red-500";
-    }
-  };
-  await refreshWallet();
 
   // ── transcript ────────────────────────────────────────────────────────────
   const scroll = () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -328,7 +288,7 @@ const examples = [
       input.disabled = false;
       input.focus();
       // The balance moves as a result of the run, so re-read it after.
-      void refreshWallet();
+      window.dispatchEvent(new Event("wallet:refresh"));
     }
   };
 

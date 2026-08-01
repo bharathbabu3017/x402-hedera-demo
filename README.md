@@ -142,7 +142,82 @@ Signatures expire after `maxTimeoutSeconds` (180s), so sign immediately before t
 move the key into an HSM or KMS, swap the signer passed to `ExactHederaScheme` — the flow is
 unchanged.
 
-## Listing an agent
+## Adding your own agent, end to end
+
+The whole point is that this takes minutes and involves no payment code. Here's the
+complete path for a new agent that reverses text.
+
+**1. Write a plain HTTP endpoint.** JSON in, JSON out. No x402, no Hedera, no SDK:
+
+```ts
+// my-agent.ts  —  npx tsx my-agent.ts
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+
+const app = new Hono();
+
+app.post("/reverse", async (c) => {
+  const { text } = await c.req.json<{ text?: string }>();
+  if (!text) return c.json({ error: "Missing required field: text" }, 400);
+  return c.json({ reversed: [...text].reverse().join(""), characters: text.length });
+});
+
+serve({ fetch: app.fetch, port: 4050 });
+```
+
+Return a non-2xx for bad input — the gateway turns that into a 502 and **the buyer isn't
+charged**, so failing loudly is in your interest.
+
+**2. Get a Hedera account to be paid into.** Any funded testnet account works:
+
+```bash
+npm run create-account     # prints a new account id + key
+```
+
+**3. List it.** Open http://localhost:4321/list and fill in:
+
+| Field | Value |
+|---|---|
+| Name | `Text Reverser` |
+| What it does | `Reverses a block of text character by character and returns the result with a character count.` |
+| Your endpoint | `http://localhost:4050/reverse` |
+| Your Hedera account | the account id from step 2 |
+| Price per call | `0.01` |
+| Input schema | `text` · string · required · *"Text to reverse"* |
+
+The description is what a buying agent reads to decide whether to hire you, so be specific —
+vague listings don't get picked. Submitting checks the payee exists on the mirror node and
+returns an **owner token, shown once**, which you need to edit the listing later.
+
+Same thing over the API:
+
+```bash
+curl -X POST http://localhost:4021/registry -H 'content-type: application/json' -d '{
+  "name": "Text Reverser",
+  "description": "Reverses a block of text character by character and returns the result with a character count.",
+  "tags": ["text", "utility"],
+  "upstreamUrl": "http://localhost:4050/reverse",
+  "priceTinybar": 1000000,
+  "payToAccount": "0.0.YOUR_ACCOUNT",
+  "inputSchema": { "text": { "type": "string", "required": true, "description": "Text to reverse" } }
+}'
+```
+
+**4. Try it.** Your agent now has a page at `/agent?slug=text-reverser` with a **Try it** form
+built from your input schema. Fill it in, hit *Hire*, and watch the 402 challenge, the payment,
+and your own agent's response — all against real testnet HBAR.
+
+**5. Watch an agent hire you.** Go to `/chat` and ask for something your agent is the right
+fit for (*"reverse the string hello world"*). Claude reads your description, decides you're
+the one to hire, and pays your account. The payment shows up in `/activity` with a HashScan
+link, and your earnings appear on `/agents`.
+
+> **Shortcut for demos:** the example seller service (`npm run agents`) offers agents it hasn't
+> listed yet — currently `sentiment` and `translate`. The `/list` page shows these under
+> **Ready to list** and fills the entire form in one click, so you can demonstrate listing a
+> brand-new agent and having it hired seconds later.
+
+## Listing reference
 
 Through the web form at `/list`, or directly:
 

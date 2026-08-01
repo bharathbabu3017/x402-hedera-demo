@@ -1,0 +1,68 @@
+---
+// The demo wallet the buying agent pays from. Shared by /chat and /agent so
+// you can always see whose money is moving and what's left.
+//
+// Pages that spend should dispatch `window.dispatchEvent(new Event("wallet:refresh"))`
+// once a run finishes — the balance only moves as a result of a hire.
+interface Props {
+  /** Extra controls rendered at the right-hand end of the bar. */
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+<div class:list={["flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-border", compact ? "py-3" : "py-3"]}>
+  <div class="flex items-center gap-2.5">
+    <span data-wallet-dot class="size-1.5 rounded-full bg-faint"></span>
+    <div>
+      <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Demo wallet</div>
+      <a data-wallet-account href="#" target="_blank" rel="noopener"
+         class="block font-mono text-sm text-accent hover:underline">connecting…</a>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-8">
+    <div>
+      <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Balance</div>
+      <div data-wallet-balance class="tabular font-mono text-sm font-medium">—</div>
+    </div>
+    <div>
+      <div class="font-mono text-[10px] uppercase tracking-wider text-faint">Budget / task</div>
+      <div data-wallet-budget class="tabular font-mono text-sm font-medium">—</div>
+    </div>
+    <slot />
+  </div>
+</div>
+
+<script>
+  import { getWallet } from "../lib/api.ts";
+  import { formatHbar } from "../lib/format.ts";
+
+  const refresh = async () => {
+    const account = document.querySelector<HTMLAnchorElement>("[data-wallet-account]");
+    const dot = document.querySelector<HTMLElement>("[data-wallet-dot]");
+    const balance = document.querySelector<HTMLElement>("[data-wallet-balance]");
+    const budget = document.querySelector<HTMLElement>("[data-wallet-budget]");
+    if (!account || !dot || !balance || !budget) return;
+
+    try {
+      const wallet = await getWallet();
+      account.textContent = wallet.accountId;
+      account.href = wallet.accountUrl;
+      account.className = "block font-mono text-sm text-accent hover:underline";
+      dot.className = "size-1.5 rounded-full bg-accent";
+      balance.textContent =
+        wallet.balanceTinybar === null ? "unavailable" : formatHbar(wallet.balanceTinybar);
+      budget.textContent = formatHbar(wallet.budgetTinybar);
+    } catch {
+      account.textContent = "buying agent offline";
+      account.className = "block font-mono text-sm text-muted";
+      account.removeAttribute("href");
+      dot.className = "size-1.5 rounded-full bg-red-500";
+      balance.textContent = "—";
+      budget.textContent = "—";
+    }
+  };
+
+  await refresh();
+  window.addEventListener("wallet:refresh", () => void refresh());
+</script>
