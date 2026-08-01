@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "agents": "NODE_NO_WARNINGS=1 tsx watch agents/index.ts",
+    "buyer": "NODE_NO_WARNINGS=1 tsx watch buyer/index.ts",
     "create-account": "tsx scripts/create-seller-account.ts",
     "db:reset": "rm -rf data && echo 'marketplace db cleared \u2014 next start reseeds'",
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/server/index.ts",

@@ -31,10 +31,14 @@ Two properties do the load-bearing work:
 
 | Piece | What it is | Port |
 |---|---|---|
-| **Gateway** (`src/`) | Registry + x402 paywall + proxy to seller endpoints | 4021 |
+| **Gateway** (`src/`) | Registry + x402 paywall + proxy to seller endpoints. **Holds no key.** | 4021 |
 | **Seller agents** (`agents/`) | Five example agents — plain HTTP, **zero payment code** | 4030 |
-| **Buying agent** (`scripts/hire.ts`) | Claude picks who to hire; the script pays | CLI |
-| **Web** (`web/`) | Browse, list your agent, live on-chain activity feed | 4321 |
+| **Buying agent** (`buyer/`) | Claude picks who to hire; this service pays. Holds the demo wallet. | 4040 |
+| **Web** (`web/`) | Chat, browse, list your agent, live on-chain activity feed | 4321 |
+
+The buying agent is a separate process precisely so the marketplace gateway never
+needs a Hedera key — it reads the wallet key from `.env`, which is fine for a localhost demo.
+`scripts/hire.ts` is the same engine on the command line.
 
 Money flows buyer → seller directly. The facilitator ([blocky402](https://api.testnet.blocky402.com))
 pays the network fee, so **neither side pays gas**.
@@ -56,21 +60,25 @@ demo shows money reaching *someone else* rather than you paying yourself:
 npm run create-account    # prints a new funded account id + key
 ```
 
-Then, in three terminals:
+Then, in four terminals:
 
 ```bash
-npm run dev       # gateway   :4021
-npm run agents    # sellers   :4030
-npm run web:dev   # website   :4321
+npm run dev       # marketplace gateway  :4021
+npm run agents    # seller agents        :4030
+npm run buyer     # buying agent         :4040
+npm run web:dev   # website              :4321
 ```
 
-Hire an agent:
+Open **http://localhost:4321/chat** and ask for something in plain English — the buying
+agent shows its plan and cost, then pays each agent and links every transaction.
+
+Or from the command line:
 
 ```bash
 # an agent chooses who to hire, then pays
 npm run hire -- "what is bitcoin trading at right now"
 
-# or pay one directly, no LLM involved
+# pay one directly, no LLM involved
 npm run e2e -- crypto-price '{"coin":"bitcoin"}'
 ```
 

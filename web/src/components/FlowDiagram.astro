@@ -2,36 +2,28 @@
 const rows = [
   { dir: "out", method: "POST", text: "/a/sentiment", note: "buying agent, no account" },
   { dir: "in", status: "402", text: "payment required", note: "0.02 ℏ · payTo 0.0.9864248" },
-  { dir: "out", method: "SIGN", text: "transfer 0.02 ℏ", note: "facilitator pays the network fee" },
+  { dir: "out", method: "SIGN", text: "transfer 0.02 ℏ", note: "facilitator covers the network fee" },
   { dir: "in", status: "200", text: '{ "sentiment": "positive" }', note: "seller paid directly" },
 ];
 ---
-<div
-  class="relative w-full overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[0_24px_60px_-24px_rgb(0_0_0/0.7)] backdrop-blur"
-  data-flow
->
-  <div class="flex items-center gap-2 border-b border-border px-4 py-3">
-    <span class="size-2.5 rounded-full bg-border"></span>
-    <span class="size-2.5 rounded-full bg-border"></span>
-    <span class="size-2.5 rounded-full bg-border"></span>
-    <span class="ml-2 font-mono text-xs text-faint">buying agent &rarr; marketplace</span>
+<div class="overflow-hidden rounded-xl border border-border bg-surface" data-flow>
+  <div class="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5">
+    <span class="font-mono text-xs text-muted">buying agent → marketplace</span>
+    <span class="font-mono text-[11px] text-faint">402 → sign → 200</span>
   </div>
 
-  <div class="flex flex-col gap-2 p-4">
+  <div class="divide-y divide-border">
     {rows.map((r, i) => (
-      <div
-        data-node={i}
-        class="flow-row rounded-lg border border-transparent px-3 py-2.5 transition-colors duration-300"
-      >
-        <div class="flex items-baseline gap-2.5 font-mono text-sm">
-          <span class={r.dir === "out" ? "text-faint" : "text-accent"}>{r.dir === "out" ? "→" : "←"}</span>
+      <div data-node={i} class="px-4 py-3 transition-colors duration-300">
+        <div class="flex items-baseline gap-2.5 font-mono text-[13px]">
+          <span class="w-3 text-faint">{r.dir === "out" ? "→" : "←"}</span>
           {r.method && <span class="text-muted">{r.method}</span>}
           {r.status && (
-            <span class={r.status === "200" ? "text-accent" : "text-text"}>{r.status}</span>
+            <span class={r.status === "200" ? "font-medium text-accent" : "font-medium text-text"}>{r.status}</span>
           )}
           <span class="min-w-0 break-all text-text">{r.text}</span>
         </div>
-        <div class="mt-1 pl-6 font-mono text-xs text-faint">{r.note}</div>
+        <div class="mt-1 pl-[1.375rem] font-mono text-[11px] text-faint">{r.note}</div>
       </div>
     ))}
   </div>
@@ -44,15 +36,16 @@ const rows = [
   const root = document.querySelector<HTMLElement>("[data-flow]");
   if (root) {
     const rows = root.querySelectorAll<HTMLElement>("[data-node]");
-    const active = "border-accent/60 bg-surface-2";
+    const active = ["bg-accent-wash"];
     if (reduce) {
-      rows.forEach((n) => n.classList.add(...active.split(" ")));
+      // No stepping animation — show the whole exchange at rest.
+      rows.forEach((n) => n.classList.remove(...active));
     } else {
       const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 });
       rows.forEach((n) => {
         tl.call(() => {
-          rows.forEach((m) => m.classList.remove(...active.split(" ")));
-          n.classList.add(...active.split(" "));
+          rows.forEach((m) => m.classList.remove(...active));
+          n.classList.add(...active);
         });
         tl.to({}, { duration: 0.8 });
       });

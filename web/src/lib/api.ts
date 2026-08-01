@@ -81,6 +81,104 @@ export class ListingRejected extends Error {
   }
 }
 
+// ── buying agent service ─────────────────────────────────────────────────────
+
+export interface Wallet {
+  accountId: string;
+  accountUrl: string;
+  balanceTinybar: number | null;
+  budgetTinybar: number;
+  network: string;
+  gatewayUrl: string;
+}
+
+export interface PlanStep {
+  slug: string;
+  reason: string;
+  usesOutputOf: number | null;
+}
+
+/** Mirrors `BuyerEvent` in src/core/buyer.ts. */
+export type BuyerEvent =
+  | { type: "listings"; listings: Listing[] }
+  | { type: "thinking" }
+  | {
+      type: "plan";
+      plan: { reasoning: string; steps: PlanStep[] };
+      projectedTinybar: number;
+      budgetTinybar: number;
+    }
+  | { type: "refused"; projectedTinybar: number; budgetTinybar: number; skipped: string[] }
+  | { type: "step-start"; index: number; slug: string; name: string; priceTinybar: number }
+  | {
+      type: "step-paid";
+      index: number;
+      slug: string;
+      priceTinybar: number;
+      payTo: string;
+      txId: string;
+      txUrl: string;
+    }
+  | { type: "step-result"; index: number; slug: string; result: unknown }
+  | { type: "step-failed"; index: number; slug: string; message: string; charged: false }
+  | { type: "done"; spentTinybar: number; result: unknown }
+  | { type: "error"; message: string }
+  | { type: "close" };
+
+export const getWallet = async (): Promise<Wallet> => {
+  let res: Response;
+  try {
+    res = await fetch(`${site.buyerBase}/wallet`);
+  } catch {
+    throw new GatewayDown();
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as Wallet;
+};
+
+/**
+ * Streams the buy as it happens. Uses fetch + a ReadableStream rather than
+ * EventSource because the task has to go up in a POST body.
+ */
+export async function* streamChat(task: string): AsyncGenerator<BuyerEvent> {
+  let res: Response;
+  try {
+    res = await fetch(`${site.buyerBase}/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task }),
+    });
+  } catch {
+    throw new GatewayDown();
+  }
+
+  if (!res.ok || !res.body) {
+    const detail = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(detail.error ?? `HTTP ${res.status}`);
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+
+    // SSE frames are separated by a blank line; each carries one `data:` line.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      const event = JSON.parse(line.slice(5).trim()) as BuyerEvent;
+      if (event.type === "close") return;
+      yield event;
+    }
+  }
+}
+
 export const createListing = async (draft: unknown): Promise<CreateResult> => {
   let res: Response;
   try {

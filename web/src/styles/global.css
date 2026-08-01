@@ -2,19 +2,23 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
+/* Light, flat and typographic — a catalogue you read, not a dashboard you
+   watch. No gradients, no glows; hairline rules and whitespace do the work. */
 @theme {
   --font-sans: "Geist Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
-  --color-bg: #09090b;
-  --color-surface: #131316;
-  --color-surface-2: #1b1b1f;
-  --color-border: #27272a;
-  --color-text: #fafafa;
-  --color-muted: #a1a1aa;
-  --color-faint: #8b8b94;
-  --color-accent: #34d399;
-  --color-accent-dim: #10b981;
+  --color-bg: #fdfdfc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f5f3;
+  --color-border: #e5e3e0;
+  --color-border-strong: #d3d0cc;
+  --color-text: #1a1917;
+  --color-muted: #5c5853;
+  --color-faint: #918c85;
+  --color-accent: #4338ca;
+  --color-accent-dim: #312a9e;
+  --color-accent-wash: #eeecfb;
 }
 
 html {
@@ -28,52 +32,34 @@ html {
   html { scroll-behavior: auto; }
 }
 
-/* Fixed atmosphere: faint grid fading out + a single emerald glow top-center. */
-.bg-atmosphere {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(60% 42% at 50% -8%, rgb(52 211 153 / 0.16), transparent 70%),
-    radial-gradient(40% 30% at 85% 6%, rgb(16 185 129 / 0.08), transparent 70%);
-}
-
-.bg-atmosphere::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(120% 70% at 50% 0%, #000 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(120% 70% at 50% 0%, #000 30%, transparent 75%);
+/* Numbers should line up in tables and price columns. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Scroll-in reveal (native scroll-driven). */
 .reveal {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(14px);
   animation: reveal-in linear both;
   animation-timeline: view();
-  animation-range: entry 0% cover 28%;
+  animation-range: entry 0% cover 26%;
 }
 
 @keyframes reveal-in {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* On-load entrance, staggered via inline animation-delay. Default state is visible. */
+/* On-load entrance, staggered via inline animation-delay. */
 @media (prefers-reduced-motion: no-preference) {
   .fade-up {
     opacity: 0;
-    animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -81,29 +67,23 @@ html {
   .reveal { opacity: 1; transform: none; animation: none; }
 }
 
-/* Hover-lit card: brighter border + faint top-edge highlight on hover. */
-.card-glow {
-  position: relative;
-  transition: border-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+/* Cards lift on a hairline, not a glow. */
+.card {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.card-glow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(180deg, rgb(52 211 153 / 0.35), transparent 60%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
+.card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 1px 2px rgb(26 25 23 / 0.04), 0 8px 24px -12px rgb(26 25 23 / 0.12);
 }
 
-.card-glow:hover::after { opacity: 1; }
+/* Inputs: quiet until focused. */
+.field {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
 
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .card-glow:hover { transform: translateY(-2px); }
+.field:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-wash);
 }

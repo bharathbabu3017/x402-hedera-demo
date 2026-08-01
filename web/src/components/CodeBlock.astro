@@ -8,15 +8,15 @@ const { code, lang = "", label } = Astro.props;
 ---
 <div class="group relative overflow-hidden rounded-xl border border-border bg-surface">
   {label && (
-    <div class="flex items-center justify-between border-b border-border px-4 py-2">
-      <span class="font-mono text-xs text-faint">{label}</span>
+    <div class="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
+      <span class="font-mono text-xs text-muted">{label}</span>
       <span class="font-mono text-[10px] uppercase tracking-wider text-faint">{lang}</span>
     </div>
   )}
   <button
     type="button"
     data-copy
-    class="absolute right-3 top-3 rounded-md border border-border bg-surface-2 px-2 py-1 font-mono text-[11px] text-muted opacity-0 transition hover:text-accent group-hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:opacity-100"
+    class="absolute right-3 bottom-3 rounded-md border border-border bg-surface px-2 py-1 font-mono text-[11px] text-muted opacity-0 transition hover:border-border-strong hover:text-text group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
   >
     Copy
   </button>

@@ -2,25 +2,27 @@
 // Listings are fetched in the browser, not at build time — an agent listed
 // during a demo must appear without a rebuild.
 ---
-<section id="browse" class="mx-auto max-w-7xl px-6 py-16">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h2 class="text-2xl font-semibold tracking-tight md:text-3xl">Agents for hire</h2>
-      <p class="mt-2 text-muted">Pay per call. No account, no API key, no subscription.</p>
+<section id="browse" class="border-t border-border bg-surface-2/50">
+  <div class="mx-auto max-w-6xl px-6 py-16">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight">Agents for hire</h2>
+        <p class="mt-1.5 text-muted">Pay per call. No account, no API key, no subscription.</p>
+      </div>
+      <label class="w-full sm:w-64">
+        <span class="sr-only">Search agents</span>
+        <input
+          id="agent-search"
+          type="search"
+          placeholder="Search by capability…"
+          class="field w-full rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text placeholder:text-faint"
+        />
+      </label>
     </div>
-    <label class="relative w-full sm:w-72">
-      <span class="sr-only">Search agents</span>
-      <input
-        id="agent-search"
-        type="search"
-        placeholder="Search by capability…"
-        class="w-full rounded-full border border-border bg-surface/60 px-4 py-2.5 text-sm text-text placeholder:text-faint backdrop-blur transition focus:border-accent/50 focus:outline-none"
-      />
-    </label>
-  </div>
 
-  <div id="agent-status" class="mt-10 text-sm text-muted">Loading agents…</div>
-  <div id="agent-grid" class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <p id="agent-status" class="mt-8 font-mono text-xs text-faint">Loading agents…</p>
+    <div id="agent-grid" class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </div>
 </section>
 
 <script>
@@ -39,20 +41,21 @@
 
   const card = (l: Listing) => `
     <a href="/agent?slug=${encodeURIComponent(l.slug)}"
-       class="card-glow group flex flex-col rounded-xl border border-border bg-surface/60 p-5 backdrop-blur transition hover:border-accent/40">
+       class="card flex flex-col rounded-xl border border-border bg-surface p-5">
       <div class="flex items-start justify-between gap-3">
-        <h3 class="font-medium leading-tight text-text">${escape(l.name)}</h3>
-        <span class="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-xs text-accent">
-          ${formatHbar(l.priceTinybar)}
-        </span>
+        <h3 class="font-medium leading-snug text-text">${escape(l.name)}</h3>
+        <span class="tabular shrink-0 font-mono text-sm font-medium text-accent">${formatHbar(l.priceTinybar)}</span>
       </div>
-      <p class="mt-3 line-clamp-3 flex-1 text-sm leading-relaxed text-muted">${escape(l.description)}</p>
+
+      <p class="mt-2.5 line-clamp-3 flex-1 text-sm leading-relaxed text-muted">${escape(l.description)}</p>
+
       <div class="mt-4 flex flex-wrap gap-1.5">
-        ${l.tags.map((t) => `<span class="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-faint">${escape(t)}</span>`).join("")}
+        ${l.tags.map((t) => `<span class="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-faint">${escape(t)}</span>`).join("")}
       </div>
-      <div class="mt-5 flex items-center justify-between border-t border-border/60 pt-4 font-mono text-xs text-faint">
-        <span>${l.calls} ${l.calls === 1 ? "call" : "calls"} · earned ${formatHbar(l.earnedTinybar)}</span>
-        <span class="text-muted transition group-hover:text-accent">${escape(l.payToAccount)}</span>
+
+      <div class="tabular mt-4 flex items-center justify-between border-t border-border pt-3 font-mono text-[11px] text-faint">
+        <span>${l.calls} ${l.calls === 1 ? "call" : "calls"} · ${formatHbar(l.earnedTinybar)} earned</span>
+        <span>${escape(l.payToAccount)}</span>
       </div>
     </a>`;
 
@@ -80,10 +83,10 @@
     search.addEventListener("input", render);
   } catch (err) {
     grid.innerHTML = "";
+    status.className = "mt-8 text-sm text-muted";
     status.innerHTML =
       err instanceof GatewayDown
-        ? `<span class="text-text">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>.</span>
-           <br />Start it with <code class="font-mono text-accent">npm run dev</code>.`
+        ? `Can't reach the marketplace at <code class="font-mono text-text">${site.apiBase}</code>. Start it with <code class="font-mono text-text">npm run dev</code>.`
         : `Failed to load agents: ${(err as Error).message}`;
   }
 </script>

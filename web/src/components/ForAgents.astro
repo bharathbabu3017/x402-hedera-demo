@@ -1,68 +1,50 @@
 ---
 import { site } from "../data/site.ts";
 import CodeBlock from "./CodeBlock.astro";
-import { Icon } from "astro-icon/components";
 
 const hireSnippet = `# discover what's for sale — free, no key
 curl ${site.apiBase}/registry
 
 # hire one; the 402 tells you the price and who gets paid
 npm run hire -- "what is bitcoin trading at right now"`;
----
-<section id="agents" class="border-t border-border/60">
-  <div class="mx-auto max-w-7xl px-6 py-20 md:py-24">
-    <span class="font-mono text-xs uppercase tracking-[0.18em] text-accent">Built for autonomous clients</span>
-    <h2 class="mt-4 max-w-[22ch] text-3xl font-semibold tracking-tighter md:text-4xl">
-      Discovery is free. Only the work costs money.
-    </h2>
-    <p class="mt-4 max-w-[60ch] text-muted">
-      A buying agent reads the registry, picks what it needs, and pays per call — the whole
-      loop is machine-executable, with no human in it.
-    </p>
 
-    <div class="mt-12 grid gap-4 md:grid-cols-3">
-      <div class="reveal card-glow rounded-xl border border-border bg-surface p-6 md:row-span-2">
-        <div class="flex items-center gap-2 text-muted">
-          <Icon name="ph:terminal-window-bold" class="size-4 text-accent" />
-          <span class="font-mono text-xs">the whole client</span>
-        </div>
-        <p class="mt-3 text-sm leading-relaxed text-muted">
-          No SDK to install, no key to provision. Read the registry, then pay for the call.
+const facts = [
+  { k: "network", v: site.network },
+  { k: "asset", v: "HBAR" },
+  { k: "scheme", v: "exact" },
+  { k: "settles to", v: "seller's account" },
+];
+---
+<section id="agents" class="border-t border-border bg-surface-2/50">
+  <div class="mx-auto max-w-6xl px-6 py-20">
+    <div class="grid gap-12 md:grid-cols-2 md:gap-16">
+      <div>
+        <span class="font-mono text-xs uppercase tracking-[0.14em] text-faint">For autonomous clients</span>
+        <h2 class="mt-3 max-w-[20ch] text-2xl font-semibold tracking-tight md:text-3xl">
+          Discovery is free. Only the work costs money.
+        </h2>
+        <p class="mt-4 max-w-[52ch] leading-relaxed text-muted">
+          A buying agent reads the registry, picks what it needs, and pays per call. The whole
+          loop is machine-executable, with no human in it.
         </p>
-        <div class="mt-4">
-          <CodeBlock code={hireSnippet} lang="bash" label="buying agent" />
+
+        <dl class="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-border pt-6">
+          {facts.map((f) => (
+            <div>
+              <dt class="font-mono text-[11px] uppercase tracking-wider text-faint">{f.k}</dt>
+              <dd class="mt-1 font-mono text-sm">{f.v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <a href="/llms.txt" class="text-accent hover:underline">llms.txt →</a>
+          <a href={`${site.apiBase}/registry`} class="text-accent hover:underline">GET /registry →</a>
         </div>
       </div>
 
-      <a href="/llms.txt" class="reveal card-glow group rounded-xl border border-border bg-surface p-6 transition hover:border-accent/50">
-        <div class="flex items-center gap-2 text-muted">
-          <Icon name="ph:file-text-bold" class="size-4 text-accent" />
-          <span class="font-mono text-xs">/llms.txt</span>
-        </div>
-        <p class="mt-3 text-sm leading-relaxed text-muted">
-          Plain-Markdown guide so an agent can work out how to buy here without being told.
-        </p>
-        <span class="mt-4 inline-block text-sm text-accent">Open llms.txt</span>
-      </a>
-
-      <a href={`${site.apiBase}/registry`} class="reveal card-glow group rounded-xl border border-border bg-surface p-6 transition hover:border-accent/50">
-        <div class="flex items-center gap-2 text-muted">
-          <Icon name="ph:list-bullets-bold" class="size-4 text-accent" />
-          <span class="font-mono text-xs">GET /registry</span>
-        </div>
-        <p class="mt-3 text-sm leading-relaxed text-muted">
-          Every listing with its price, payee and input schema. Free to read.
-        </p>
-        <span class="mt-4 inline-block text-sm text-accent">View registry</span>
-      </a>
-
-      <div class="reveal rounded-xl border border-border bg-surface-2 p-6 md:col-span-2">
-        <div class="grid grid-cols-2 gap-4 font-mono text-sm sm:grid-cols-4">
-          <div><div class="text-xs text-faint">network</div><div class="mt-1">{site.network}</div></div>
-          <div><div class="text-xs text-faint">asset</div><div class="mt-1">HBAR</div></div>
-          <div><div class="text-xs text-faint">scheme</div><div class="mt-1">exact</div></div>
-          <div><div class="text-xs text-faint">settlement</div><div class="mt-1">seller's account</div></div>
-        </div>
+      <div>
+        <CodeBlock code={hireSnippet} lang="bash" label="the whole client" />
       </div>
     </div>
   </div>

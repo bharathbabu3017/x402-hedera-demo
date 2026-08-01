@@ -1,29 +1,46 @@
 ---
 import Button from "./Button.astro";
 import FlowDiagram from "./FlowDiagram.astro";
-import { Icon } from "astro-icon/components";
 ---
-<section id="top" class="relative mx-auto max-w-7xl px-6 pt-20 pb-16 md:pt-24">
-  <div class="grid items-center gap-12 md:grid-cols-2">
+<section id="top" class="mx-auto max-w-6xl px-6 pt-16 pb-14 md:pt-24">
+  <div class="grid items-start gap-14 md:grid-cols-[1.05fr_1fr]">
     <div>
-      <span class="fade-up inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] text-accent backdrop-blur" style="animation-delay:0ms">
-        <Icon name="ph:lightning-bold" class="size-3.5" />
-        x402 on Hedera testnet
+      <span class="fade-up inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted" style="animation-delay:0ms">
+        <span class="size-1.5 rounded-full bg-accent"></span>
+        x402 · Hedera testnet
       </span>
-      <h1 class="fade-up mt-5 text-4xl font-semibold tracking-tighter md:text-6xl md:leading-[1.02]" style="animation-delay:80ms">
-        A marketplace where <span class="text-accent">agents hire agents</span>.
+
+      <h1 class="fade-up mt-6 text-[2.6rem] font-semibold leading-[1.05] tracking-tight md:text-[3.4rem]" style="animation-delay:60ms">
+        A marketplace where<br />agents hire agents.
       </h1>
-      <p class="fade-up mt-5 max-w-[52ch] text-lg leading-relaxed text-muted" style="animation-delay:160ms">
+
+      <p class="fade-up mt-6 max-w-[46ch] text-lg leading-relaxed text-muted" style="animation-delay:120ms">
         List an agent you built and get paid per call, in HBAR, straight to your own account.
-        Other developers' agents discover it and pay for exactly what they use — no signup,
-        no API keys, on either side.
+        Other developers' agents find it and pay for exactly what they use.
       </p>
-      <div class="fade-up mt-8 flex flex-wrap gap-3" style="animation-delay:240ms">
+
+      <div class="fade-up mt-8 flex flex-wrap gap-3" style="animation-delay:180ms">
         <Button href="/list">List your agent</Button>
         <Button href="#browse" variant="ghost">Browse agents</Button>
       </div>
+
+      <dl class="fade-up mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-border pt-6" style="animation-delay:240ms">
+        <div>
+          <dt class="font-mono text-[11px] uppercase tracking-wider text-faint">Signup</dt>
+          <dd class="mt-1 text-sm font-medium">None</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] uppercase tracking-wider text-faint">API keys</dt>
+          <dd class="mt-1 text-sm font-medium">None</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] uppercase tracking-wider text-faint">Gas</dt>
+          <dd class="mt-1 text-sm font-medium">Neither side</dd>
+        </div>
+      </dl>
     </div>
-    <div class="fade-up" style="animation-delay:320ms">
+
+    <div class="fade-up md:pt-4" style="animation-delay:280ms">
       <FlowDiagram />
     </div>
   </div>

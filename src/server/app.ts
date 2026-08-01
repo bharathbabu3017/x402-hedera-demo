@@ -21,6 +21,36 @@ import { buildFacilitator } from "../core/facilitator.js";
 import { hashscanAccount, hashscanTx } from "../core/hashscan.js";
 import { hireHandler, preValidateHire, recordSettlement } from "./hire.js";
 
+/**
+ * Loads the facilitator's supported payment kinds, retrying a few times before
+ * giving up. Never throws: a marketplace that can't take payments right now
+ * should still let people browse and list agents.
+ */
+const warmUpFacilitator = async (
+    x402: x402ResourceServer,
+    facilitatorUrl: string,
+    attempts = 4,
+): Promise<void> => {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+            await x402.initialize();
+            return;
+        } catch (err) {
+            const last = attempt === attempts;
+            console.warn(
+                `facilitator ${facilitatorUrl} unreachable (attempt ${attempt}/${attempts})${last ? "" : " — retrying"}: ${(err as Error).message}`,
+            );
+            if (last) {
+                console.warn(
+                    "  paid hires will fail until it recovers; the registry and web UI keep working.",
+                );
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+        }
+    }
+};
+
 export interface AppDeps {
     store: MarketplaceStore;
     config: ServerConfig;
@@ -43,6 +73,18 @@ export const createApp = ({
     app.use("*", cors());
 
     app.onError((err, c) => {
+        // Distinguish "the payment rail is down" from a genuine bug, so a buyer
+        // sees something actionable instead of a bare 500.
+        if (/no supported payment kinds loaded|facilitator/i.test(err.message)) {
+            return c.json(
+                {
+                    error: "Payments are temporarily unavailable — the x402 facilitator is unreachable.",
+                    facilitator: config.facilitatorUrl,
+                    hint: "Browsing and listing still work. Retry the hire shortly.",
+                },
+                503,
+            );
+        }
         console.error(err);
         return c.json({ error: "Internal server error" }, 500);
     });
@@ -199,6 +241,13 @@ export const createApp = ({
             "hedera:*",
             new ExactHederaScheme(),
         );
+
+        // The facilitator is a third-party service and its DNS has been seen to
+        // fail intermittently. Left alone, that failure surfaces as an unhandled
+        // rejection during middleware init and takes the whole process down —
+        // so browsing the marketplace would break because *payments* were down.
+        // Warm it up ourselves, with retries, and keep serving either way.
+        void warmUpFacilitator(x402, config.facilitatorUrl);
 
         // Both price and payee are resolved per request from the listing, so a
         // single route serves every agent and pays each seller directly. The

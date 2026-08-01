@@ -44,10 +44,10 @@ import Footer from "../components/Footer.astro";
     root.innerHTML = `
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-semibold tracking-tight text-text">${escape(l.name)}</h1>
+          <h1 class="text-2xl font-semibold tracking-tight text-text md:text-3xl">${escape(l.name)}</h1>
           <p class="mt-1 font-mono text-sm text-faint">${escape(l.slug)}</p>
         </div>
-        <span class="rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 font-mono text-sm text-accent">
+        <span class="tabular rounded-lg border border-border bg-surface px-3.5 py-1.5 font-mono text-sm font-medium text-accent">
           ${formatHbar(l.priceTinybar)} per call
         </span>
       </div>
@@ -55,25 +55,25 @@ import Footer from "../components/Footer.astro";
       <p class="mt-6 max-w-[70ch] leading-relaxed text-muted">${escape(l.description)}</p>
 
       <div class="mt-4 flex flex-wrap gap-1.5">
-        ${l.tags.map((t) => `<span class="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-faint">${escape(t)}</span>`).join("")}
+        ${l.tags.map((t) => `<span class="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-faint">${escape(t)}</span>`).join("")}
       </div>
 
       <div class="mt-10 grid gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-border bg-surface/60 p-5">
+        <div class="rounded-xl border border-border bg-surface p-5">
           <div class="font-mono text-xs text-faint">calls</div>
-          <div class="mt-1 text-2xl font-semibold">${l.calls}</div>
+          <div class="tabular mt-1 text-2xl font-semibold">${l.calls}</div>
         </div>
-        <div class="rounded-xl border border-border bg-surface/60 p-5">
+        <div class="rounded-xl border border-border bg-surface p-5">
           <div class="font-mono text-xs text-faint">earned</div>
-          <div class="mt-1 text-2xl font-semibold text-accent">${formatHbar(l.earnedTinybar)}</div>
+          <div class="tabular mt-1 text-2xl font-semibold text-accent">${formatHbar(l.earnedTinybar)}</div>
         </div>
-        <div class="rounded-xl border border-border bg-surface/60 p-5">
+        <div class="rounded-xl border border-border bg-surface p-5">
           <div class="font-mono text-xs text-faint">listed</div>
-          <div class="mt-1 text-2xl font-semibold">${relativeTime(l.createdAt)}</div>
+          <div class="tabular mt-1 text-2xl font-semibold">${relativeTime(l.createdAt)}</div>
         </div>
       </div>
 
-      <div class="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+      <div class="mt-6 rounded-xl border border-border bg-surface-2/60 p-5">
         <div class="font-mono text-xs text-faint">paid directly to</div>
         <a href="${hashscanAccount(l.payToAccount)}" target="_blank" rel="noopener"
            class="mt-1 inline-flex items-center gap-2 font-mono text-accent transition hover:underline">
@@ -97,7 +97,7 @@ import Footer from "../components/Footer.astro";
                 <tbody class="divide-y divide-border">
                   ${fields
                     .map(
-                      ([name, spec]) => `<tr class="bg-surface/40">
+                      ([name, spec]) => `<tr class="bg-surface">
                         <td class="px-4 py-3 font-mono text-text">${escape(name)}${spec.required ? '<span class="text-accent"> *</span>' : ""}</td>
                         <td class="px-4 py-3 font-mono text-muted">${escape(spec.type)}</td>
                         <td class="px-4 py-3 text-muted">${escape(spec.description)}</td>
@@ -126,15 +126,15 @@ import Footer from "../components/Footer.astro";
   };
 
   if (!slug) {
-    root.innerHTML = `<p class="text-text">No agent specified. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
+    root.innerHTML = `<p class="text-muted">No agent specified. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
   } else {
     try {
       render(await getListing(slug));
     } catch (err) {
       root.innerHTML =
         err instanceof GatewayDown
-          ? `<p class="text-text">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>. Start it with <code class="font-mono text-accent">npm run dev</code>.</p>`
-          : `<p class="text-text">No agent called <code class="font-mono text-accent">${escape(slug)}</code> is listed. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
+          ? `<p class="text-muted">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>. Start it with <code class="font-mono text-accent">npm run dev</code>.</p>`
+          : `<p class="text-muted">No agent called <code class="font-mono text-accent">${escape(slug)}</code> is listed. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
     }
   }
 </script>

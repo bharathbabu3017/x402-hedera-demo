@@ -1,0 +1,273 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+
+const examples = [
+  "What is bitcoin trading at right now?",
+  "How does this page feel about the topic: https://hedera.com/blog",
+  "Pull the people and organizations out of this: Ada Lovelace worked with Charles Babbage in London.",
+];
+---
+<Base
+  title="Chat | Agent Marketplace"
+  description="Give a task in plain English. The buying agent picks which marketplace agents to hire, pays them in HBAR, and shows every transaction."
+>
+  <Nav />
+  <main class="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-4xl flex-col px-6">
+    <!-- wallet -->
+    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-border py-4">
+      <div>
+        <div class="font-mono text-[11px] uppercase tracking-wider text-faint">Demo wallet</div>
+        <a id="wallet-account" href="#" target="_blank" rel="noopener"
+           class="mt-0.5 block font-mono text-sm text-accent hover:underline">connecting…</a>
+      </div>
+      <div class="flex items-center gap-8">
+        <div class="text-right">
+          <div class="font-mono text-[11px] uppercase tracking-wider text-faint">Balance</div>
+          <div id="wallet-balance" class="tabular mt-0.5 font-mono text-sm font-medium">—</div>
+        </div>
+        <div class="text-right">
+          <div class="font-mono text-[11px] uppercase tracking-wider text-faint">Budget / task</div>
+          <div id="wallet-budget" class="tabular mt-0.5 font-mono text-sm font-medium">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- transcript -->
+    <div id="transcript" class="flex-1 space-y-6 py-8">
+      <div id="empty-state">
+        <h1 class="text-2xl font-semibold tracking-tight">Hire an agent</h1>
+        <p class="mt-2 max-w-[58ch] text-muted">
+          Describe a task. The buying agent reads the marketplace, decides who to hire, shows you
+          the cost before spending anything, then pays per call in HBAR.
+        </p>
+        <div class="mt-6 flex flex-col items-start gap-2">
+          {examples.map((ex) => (
+            <button type="button" data-example={ex}
+              class="rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm text-muted transition-colors hover:border-border-strong hover:text-text">
+              {ex}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- composer -->
+    <form id="composer" class="sticky bottom-0 border-t border-border bg-bg py-4">
+      <div class="flex gap-3">
+        <input id="task" name="task" autocomplete="off" placeholder="Ask for something…"
+          class="field flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder:text-faint" />
+        <button type="submit" id="send"
+          class="rounded-lg bg-text px-5 py-2.5 text-sm font-medium text-bg transition-colors hover:bg-accent disabled:opacity-40">
+          Send
+        </button>
+      </div>
+      <p class="mt-2 font-mono text-[11px] text-faint">
+        Payments are real HBAR on Hedera testnet. The key is read from <code>.env</code> — demo only.
+      </p>
+    </form>
+  </main>
+</Base>
+
+<script>
+  import { getWallet, streamChat, GatewayDown, type BuyerEvent } from "../lib/api.ts";
+  import { formatHbar } from "../lib/format.ts";
+  import { site } from "../data/site.ts";
+
+  const transcript = document.getElementById("transcript")!;
+  const emptyState = document.getElementById("empty-state")!;
+  const form = document.getElementById("composer") as HTMLFormElement;
+  const input = document.getElementById("task") as HTMLInputElement;
+  const send = document.getElementById("send") as HTMLButtonElement;
+
+  const escape = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    );
+
+  // ── wallet ────────────────────────────────────────────────────────────────
+  const refreshWallet = async () => {
+    try {
+      const w = await getWallet();
+      const account = document.getElementById("wallet-account") as HTMLAnchorElement;
+      account.textContent = w.accountId;
+      account.href = w.accountUrl;
+      document.getElementById("wallet-balance")!.textContent =
+        w.balanceTinybar === null ? "unavailable" : formatHbar(w.balanceTinybar);
+      document.getElementById("wallet-budget")!.textContent = formatHbar(w.budgetTinybar);
+    } catch {
+      const account = document.getElementById("wallet-account") as HTMLAnchorElement;
+      account.textContent = "buying agent offline";
+      account.className = "mt-0.5 block font-mono text-sm text-muted";
+      account.removeAttribute("href");
+    }
+  };
+  await refreshWallet();
+
+  // ── transcript helpers ────────────────────────────────────────────────────
+  const scroll = () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+
+  const append = (html: string): HTMLElement => {
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    const node = el.firstElementChild as HTMLElement;
+    transcript.append(node);
+    scroll();
+    return node;
+  };
+
+  const userBubble = (task: string) =>
+    append(`<div class="flex justify-end">
+      <div class="max-w-[75%] rounded-xl rounded-br-sm bg-text px-4 py-2.5 text-sm text-bg">${escape(task)}</div>
+    </div>`);
+
+  const note = (text: string, tone: "muted" | "error" = "muted") =>
+    append(`<p class="text-sm ${tone === "error" ? "text-red-600" : "text-muted"}">${text}</p>`);
+
+  // ── event rendering ───────────────────────────────────────────────────────
+  const renderEvent = (event: BuyerEvent, steps: Map<number, HTMLElement>) => {
+    switch (event.type) {
+      case "thinking":
+        return append(`<p id="thinking" class="text-sm text-muted">Reading the marketplace and choosing who to hire…</p>`);
+
+      case "plan": {
+        document.getElementById("thinking")?.remove();
+        const rows = event.plan.steps
+          .map((s, i) => {
+            const chained =
+              s.usesOutputOf !== null
+                ? `<span class="font-mono text-[11px] text-faint"> ← step ${s.usesOutputOf + 1}</span>`
+                : "";
+            return `<li class="flex gap-3">
+              <span class="tabular font-mono text-xs text-accent">${i + 1}</span>
+              <div>
+                <div class="text-sm font-medium">${escape(s.slug)}${chained}</div>
+                <div class="mt-0.5 text-sm text-muted">${escape(s.reason)}</div>
+              </div>
+            </li>`;
+          })
+          .join("");
+
+        return append(`<div class="rounded-xl border border-border bg-surface p-5">
+          <div class="font-mono text-[11px] uppercase tracking-wider text-faint">Plan</div>
+          <p class="mt-1.5 text-sm">${escape(event.plan.reasoning)}</p>
+          <ul class="mt-4 space-y-3">${rows}</ul>
+          <div class="tabular mt-4 border-t border-border pt-3 font-mono text-xs text-muted">
+            projected ${formatHbar(event.projectedTinybar)} · budget ${formatHbar(event.budgetTinybar)}
+          </div>
+        </div>`);
+      }
+
+      case "refused":
+        return append(`<div class="rounded-xl border border-red-200 bg-red-50 p-5">
+          <div class="text-sm font-medium text-red-700">Refused — over budget</div>
+          <p class="mt-1.5 text-sm text-red-700">
+            This plan would cost ${formatHbar(event.projectedTinybar)}, over the
+            ${formatHbar(event.budgetTinybar)} budget. <strong>Nothing was paid.</strong>
+          </p>
+          <ul class="mt-3 space-y-1 text-sm text-red-700">
+            ${event.skipped.map((s) => `<li>skipped ${escape(s)}</li>`).join("")}
+          </ul>
+        </div>`);
+
+      case "step-start": {
+        const node = append(`<div class="rounded-xl border border-border bg-surface p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="text-sm font-medium">${escape(event.name)}</div>
+            <div class="tabular font-mono text-xs text-faint" data-status>hiring…</div>
+          </div>
+          <div data-detail></div>
+        </div>`);
+        steps.set(event.index, node);
+        return node;
+      }
+
+      case "step-paid": {
+        const node = steps.get(event.index);
+        if (!node) return null;
+        node.querySelector("[data-status]")!.innerHTML =
+          `<span class="text-accent">paid ${formatHbar(event.priceTinybar)}</span>`;
+        node.querySelector("[data-detail]")!.innerHTML = `
+          <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-faint">
+            <span>→ ${escape(event.payTo)}</span>
+            <a href="${event.txUrl}" target="_blank" rel="noopener" class="text-accent hover:underline">view on HashScan ↗</a>
+          </div>`;
+        return node;
+      }
+
+      case "step-failed": {
+        const node = steps.get(event.index);
+        if (node) {
+          node.querySelector("[data-status]")!.innerHTML = `<span class="text-red-600">failed</span>`;
+          node.querySelector("[data-detail]")!.innerHTML =
+            `<p class="mt-2 text-sm text-red-600">${escape(event.message)}</p>
+             <p class="mt-1 font-mono text-[11px] text-faint">nothing was charged for this call</p>`;
+        }
+        return node ?? null;
+      }
+
+      case "done": {
+        if (event.result !== null && event.result !== undefined) {
+          const body =
+            typeof event.result === "string"
+              ? escape(event.result)
+              : escape(JSON.stringify(event.result, null, 2));
+          append(`<div class="overflow-hidden rounded-xl border border-border bg-surface">
+            <div class="border-b border-border bg-surface-2 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-faint">Result</div>
+            <pre class="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-text"><code>${body}</code></pre>
+          </div>`);
+        }
+        return append(`<p class="tabular font-mono text-xs text-faint">spent ${formatHbar(event.spentTinybar)}</p>`);
+      }
+
+      case "error":
+        return note(escape(event.message), "error");
+
+      default:
+        return null;
+    }
+  };
+
+  // ── submit ────────────────────────────────────────────────────────────────
+  const run = async (task: string) => {
+    emptyState.remove();
+    userBubble(task);
+    input.value = "";
+    send.disabled = true;
+    input.disabled = true;
+
+    const steps = new Map<number, HTMLElement>();
+    try {
+      for await (const event of streamChat(task)) {
+        renderEvent(event, steps);
+        scroll();
+      }
+    } catch (err) {
+      document.getElementById("thinking")?.remove();
+      note(
+        err instanceof GatewayDown
+          ? `Can't reach the buying agent at <code class="font-mono">${site.buyerBase}</code>. Start it with <code class="font-mono">npm run buyer</code>.`
+          : escape((err as Error).message),
+        "error",
+      );
+    } finally {
+      send.disabled = false;
+      input.disabled = false;
+      input.focus();
+      // Balance moves as a result of the run, so re-read it after.
+      void refreshWallet();
+    }
+  };
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const task = input.value.trim();
+    if (task) void run(task);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-example]").forEach((btn) => {
+    btn.addEventListener("click", () => void run(btn.dataset["example"]!));
+  });
+
+  input.focus();
+</script>

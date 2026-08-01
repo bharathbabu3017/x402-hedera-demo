@@ -4,8 +4,8 @@ import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 
 const field =
-  "w-full rounded-lg border border-border bg-surface/60 px-4 py-2.5 text-sm text-text placeholder:text-faint transition focus:border-accent/50 focus:outline-none";
-const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
+  "field w-full rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text placeholder:text-faint";
+const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-faint";
 ---
 <Base
   title="List your agent | Agent Marketplace"
@@ -13,7 +13,7 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
 >
   <Nav />
   <main class="mx-auto max-w-3xl px-6 py-16">
-    <h1 class="text-3xl font-semibold tracking-tighter md:text-4xl">List your agent</h1>
+    <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">List your agent</h1>
     <p class="mt-4 max-w-[60ch] leading-relaxed text-muted">
       Point us at an endpoint you already run. We front it with a paywall and route payment
       straight to your Hedera account. You write no payment code and we never hold your money.
@@ -58,21 +58,21 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
         </div>
       </div>
 
-      <fieldset class="rounded-xl border border-border bg-surface/40 p-5">
+      <fieldset class="rounded-xl border border-border bg-surface-2/60 p-5">
         <legend class="px-2 font-mono text-xs uppercase tracking-[0.14em] text-faint">Input schema</legend>
         <p class="text-xs text-faint">
           The fields your endpoint expects. A buying agent fills these in from the description.
         </p>
         <div id="schema-rows" class="mt-4 grid gap-3"></div>
         <button type="button" id="add-field"
-          class="mt-4 rounded-lg border border-border px-3 py-1.5 font-mono text-xs text-muted transition hover:border-accent/50 hover:text-accent">
+          class="mt-4 rounded-lg border border-border px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:border-border-strong hover:text-text">
           + add field
         </button>
       </fieldset>
 
       <div class="flex items-center gap-4">
         <button type="submit" id="submit"
-          class="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-bg shadow-[0_8px_28px_-10px_rgb(52_211_153/0.6)] transition-all hover:bg-accent-dim active:scale-[0.98] disabled:opacity-50">
+          class="inline-flex items-center justify-center rounded-lg bg-text px-5 py-2 text-sm font-medium text-bg transition-colors hover:bg-accent disabled:opacity-50">
           List agent
         </button>
         <span id="form-status" class="text-sm text-muted"></span>
@@ -101,7 +101,7 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
     );
 
   const input =
-    "rounded-lg border border-border bg-surface/60 px-3 py-2 text-sm text-text placeholder:text-faint focus:border-accent/50 focus:outline-none";
+    "field rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text placeholder:text-faint";
 
   const addRow = (name = "", description = "") => {
     const row = document.createElement("div");
@@ -111,7 +111,7 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
       <select class="${input} field-type"><option value="string">string</option><option value="number">number</option></select>
       <input class="${input} field-desc" placeholder="what this field is" value="${escape(description)}" />
       <label class="flex items-center gap-1.5 font-mono text-xs text-faint">
-        <input type="checkbox" class="field-required accent-[#34d399]" checked /> req
+        <input type="checkbox" class="field-required accent-[#4338ca]" checked /> req
       </label>`;
     rows.append(row);
   };
@@ -158,7 +158,7 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
       form.classList.add("hidden");
       result.classList.remove("hidden");
       result.innerHTML = `
-        <div class="rounded-xl border border-accent/30 bg-accent/5 p-6">
+        <div class="rounded-xl border border-border bg-surface p-6">
           <h2 class="text-xl font-medium text-text">${escape(created.listing.name)} is live</h2>
           <p class="mt-2 text-muted">
             Listed at ${formatHbar(created.listing.priceTinybar)} per call. Payments settle to
@@ -177,8 +177,8 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
 
           <div class="mt-6 flex flex-wrap gap-3">
             <a href="/agent?slug=${encodeURIComponent(created.listing.slug)}"
-               class="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-bg transition hover:bg-accent-dim">View listing</a>
-            <a href="/#browse" class="rounded-full border border-border px-5 py-2.5 text-sm text-text transition hover:border-accent/50">Back to marketplace</a>
+               class="rounded-lg bg-text px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-accent">View listing</a>
+            <a href="/#browse" class="rounded-lg border border-border px-4 py-2 text-sm text-text transition-colors hover:border-border-strong hover:bg-surface-2">Back to marketplace</a>
           </div>
         </div>`;
 
@@ -190,12 +190,12 @@ const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
       submit.disabled = false;
       if (err instanceof ListingRejected) {
         status.innerHTML = err.errors
-          .map((e) => `<span class="block text-red-400">${escape(e.message)}</span>`)
+          .map((e) => `<span class="block text-red-600">${escape(e.message)}</span>`)
           .join("");
       } else if (err instanceof GatewayDown) {
-        status.innerHTML = `<span class="text-red-400">Can't reach the marketplace at ${site.apiBase}. Start it with <code class="font-mono">npm run dev</code>.</span>`;
+        status.innerHTML = `<span class="text-red-600">Can't reach the marketplace at ${site.apiBase}. Start it with <code class="font-mono">npm run dev</code>.</span>`;
       } else {
-        status.innerHTML = `<span class="text-red-400">${escape((err as Error).message)}</span>`;
+        status.innerHTML = `<span class="text-red-600">${escape((err as Error).message)}</span>`;
       }
     }
   });

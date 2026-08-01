@@ -11,14 +11,14 @@ import Footer from "../components/Footer.astro";
   <main class="mx-auto max-w-5xl px-6 py-16">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-semibold tracking-tighter md:text-4xl">Activity</h1>
+        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Activity</h1>
         <p class="mt-3 max-w-[60ch] text-muted">
           Every row is one agent hiring another, settled on Hedera testnet. Follow any
           transaction to HashScan to see the HBAR move.
         </p>
       </div>
       <label class="flex items-center gap-2 font-mono text-xs text-faint">
-        <input id="auto" type="checkbox" checked class="accent-[#34d399]" />
+        <input id="auto" type="checkbox" checked class="accent-[#4338ca]" />
         auto-refresh
       </label>
     </div>
@@ -44,13 +44,13 @@ import Footer from "../components/Footer.astro";
     );
 
   const stat = (label: string, value: string) => `
-    <div class="rounded-xl border border-border bg-surface/60 p-5">
-      <div class="font-mono text-xs text-faint">${label}</div>
-      <div class="mt-1 text-2xl font-semibold">${value}</div>
+    <div class="rounded-xl border border-border bg-surface p-5">
+      <div class="font-mono text-[11px] uppercase tracking-wider text-faint">${label}</div>
+      <div class="tabular mt-1 text-2xl font-semibold">${value}</div>
     </div>`;
 
   const row = (c: PaidCall) => `
-    <div class="grid grid-cols-[1fr_auto] items-center gap-4 border-b border-border/60 px-4 py-4 transition hover:bg-surface/40">
+    <div class="grid grid-cols-[1fr_auto] items-center gap-4 border-b border-border px-4 py-3.5 transition-colors last:border-b-0 hover:bg-surface-2">
       <div class="min-w-0">
         <div class="flex flex-wrap items-baseline gap-2">
           <a href="/agent?slug=${encodeURIComponent(c.slug)}" class="font-medium text-text hover:text-accent">${escape(c.agentName)}</a>
@@ -63,7 +63,7 @@ import Footer from "../components/Footer.astro";
         </div>
       </div>
       <div class="text-right">
-        <div class="font-mono text-sm text-accent">${formatHbar(c.tinybar)}</div>
+        <div class="tabular font-mono text-sm font-medium text-accent">${formatHbar(c.tinybar)}</div>
         <a href="${c.txUrl}" target="_blank" rel="noopener"
            class="font-mono text-xs text-faint transition hover:text-accent">proof ↗</a>
       </div>
@@ -83,7 +83,7 @@ import Footer from "../components/Footer.astro";
       stat("volume", formatHbar(volume)) +
       stat("sellers paid", String(sellers));
 
-    feed.innerHTML = `<div class="overflow-hidden rounded-xl border border-border bg-surface/30">${calls.map(row).join("")}</div>`;
+    feed.innerHTML = `<div class="overflow-hidden rounded-xl border border-border bg-surface">${calls.map(row).join("")}</div>`;
   };
 
   const load = async () => {
@@ -93,8 +93,8 @@ import Footer from "../components/Footer.astro";
       totals.innerHTML = "";
       feed.innerHTML =
         err instanceof GatewayDown
-          ? `<p class="text-text">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>. Start it with <code class="font-mono text-accent">npm run dev</code>.</p>`
-          : `<p class="text-text">Failed to load activity: ${escape((err as Error).message)}</p>`;
+          ? `<p class="text-muted">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>. Start it with <code class="font-mono text-accent">npm run dev</code>.</p>`
+          : `<p class="text-muted">Failed to load activity: ${escape((err as Error).message)}</p>`;
     }
   };
 
