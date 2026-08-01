@@ -1,25 +1,41 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { paymentMiddleware } from "@x402/hono";
+import { x402ResourceServer } from "@x402/core/server";
+import type { RoutesConfig } from "@x402/core/server";
+import type { Network } from "@x402/core/types";
+import { ExactHederaScheme } from "@x402/hedera/exact/server";
 import type { ServerConfig } from "../core/config.js";
 import type { MarketplaceStore } from "../core/store.js";
 import {
     draftToListing,
     newOwnerToken,
+    priceFor,
+    slugFromPath,
     slugify,
     validateDraft,
     type ListingDraft,
 } from "../core/listing.js";
 import { accountExists } from "../core/mirror.js";
+import { buildFacilitator } from "../core/facilitator.js";
 import { hashscanAccount, hashscanTx } from "../core/hashscan.js";
+import { hireHandler, preValidateHire, recordSettlement } from "./hire.js";
 
 export interface AppDeps {
     store: MarketplaceStore;
     config: ServerConfig;
     /** Injected so tests can run without touching the network. */
     verifyAccount?: (accountId: string) => Promise<boolean>;
+    /** Off in unit tests, which assert routing and validation, not settlement. */
+    enablePayments?: boolean;
 }
 
-export const createApp = ({ store, config, verifyAccount }: AppDeps): Hono => {
+export const createApp = ({
+    store,
+    config,
+    verifyAccount,
+    enablePayments = true,
+}: AppDeps): Hono => {
     const app = new Hono();
     const checkAccount =
         verifyAccount ?? ((id: string) => accountExists(config.mirrorNodeUrl, id));
@@ -167,6 +183,52 @@ export const createApp = ({ store, config, verifyAccount }: AppDeps): Hono => {
         });
         return c.json({ calls });
     });
+
+    // ── hiring (paid) ────────────────────────────────────────────────────────
+    //
+    // Ordering is load-bearing:
+    //   1. pre-validation  — 404/400 before any money moves
+    //   2. recorder        — wraps the paywall so it can read the settlement
+    //   3. paymentMiddleware
+    //   4. handler         — calls upstream, 502s if the agent didn't deliver
+
+    app.use("/a/:slug", preValidateHire(store));
+
+    if (enablePayments) {
+        const x402 = new x402ResourceServer(buildFacilitator(config.facilitatorUrl)).register(
+            "hedera:*",
+            new ExactHederaScheme(),
+        );
+
+        // Both price and payee are resolved per request from the listing, so a
+        // single route serves every agent and pays each seller directly. The
+        // marketplace is a router, never an escrow.
+        const routes: RoutesConfig = {
+            "POST /a/:slug": {
+                description: "Hire a marketplace agent — price and payee vary by listing",
+                accepts: {
+                    scheme: "exact",
+                    network: config.hederaNetwork as Network,
+                    payTo: (ctx) => {
+                        const listing = store.get(slugFromPath(ctx.path));
+                        if (!listing) throw new Error(`Unknown agent: ${ctx.path}`);
+                        return listing.payToAccount;
+                    },
+                    price: (ctx) => {
+                        const listing = store.get(slugFromPath(ctx.path));
+                        if (!listing) throw new Error(`Unknown agent: ${ctx.path}`);
+                        return priceFor(listing);
+                    },
+                    maxTimeoutSeconds: 180,
+                },
+            },
+        };
+
+        app.use("/a/:slug", recordSettlement(store));
+        app.use("/a/:slug", paymentMiddleware(routes, x402));
+    }
+
+    app.post("/a/:slug", hireHandler(store));
 
     return app;
 };

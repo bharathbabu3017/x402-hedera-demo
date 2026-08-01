@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createApp } from "../src/server/app.js";
 import { MarketplaceStore } from "../src/core/store.js";
 import { draftToListing, newOwnerToken } from "../src/core/listing.js";
@@ -48,9 +48,9 @@ interface Activity {
 
 // Every account is assumed to exist unless a test says otherwise — keeps the
 // suite offline.
-const makeApp = (verifyAccount = async () => true) => {
+const makeApp = (verifyAccount = async () => true, enablePayments = false) => {
     store = new MarketplaceStore(":memory:");
-    app = createApp({ store, config, verifyAccount });
+    app = createApp({ store, config, verifyAccount, enablePayments });
 };
 
 beforeEach(() => makeApp());
@@ -146,6 +146,98 @@ describe("editing a listing", () => {
         const token = newOwnerToken();
         store.insert(draftToListing(draft), token);
         expect((await patch({ priceTinybar: -10 }, token)).status).toBe(400);
+    });
+});
+
+describe("paywall ordering", () => {
+    // These run with payments ON. The point is that a buyer must never be
+    // charged for a request the gateway could have rejected for free.
+    const hire = (slug: string, body: unknown) =>
+        app.request(`/a/${slug}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+        });
+
+    beforeEach(() => {
+        makeApp(async () => true, true);
+        store.insert(draftToListing(draft), newOwnerToken());
+    });
+
+    it("404s an unknown agent instead of demanding payment for it", async () => {
+        const res = await hire("does-not-exist", { text: "hi" });
+        expect(res.status).toBe(404);
+    });
+
+    it("400s a request missing a required field, before charging", async () => {
+        const res = await hire("sentiment", {});
+        expect(res.status).toBe(400);
+    });
+
+    it("400s a non-JSON body, before charging", async () => {
+        const res = await app.request("/a/sentiment", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "not json",
+        });
+        expect(res.status).toBe(400);
+    });
+
+    it("demands payment once the request is known to be valid", async () => {
+        const res = await hire("sentiment", { text: "hi" });
+        expect(res.status).toBe(402);
+        expect(res.headers.get("payment-required")).toBeTruthy();
+    });
+});
+
+describe("upstream failure policy", () => {
+    // Payments off here: we're asserting the handler refuses to return a
+    // success status when the seller's agent didn't actually deliver, which is
+    // what stops settlement from proceeding.
+    const hire = () =>
+        app.request("/a/sentiment", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ text: "hi" }),
+        });
+
+    beforeEach(() => {
+        store.insert(draftToListing(draft), newOwnerToken());
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it("502s when the seller's endpoint is unreachable", async () => {
+        vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+        const res = await hire();
+        expect(res.status).toBe(502);
+    });
+
+    it("502s when the seller's endpoint errors", async () => {
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+            new Response("boom", { status: 500 }),
+        );
+        const res = await hire();
+        expect(res.status).toBe(502);
+        expect((await json<{ upstreamStatus: number }>(res)).upstreamStatus).toBe(500);
+    });
+
+    it("502s when the seller returns a non-JSON body", async () => {
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+            new Response("<html>nope</html>", { status: 200 }),
+        );
+        expect((await hire()).status).toBe(502);
+    });
+
+    it("returns the agent's result when it delivers", async () => {
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+            Response.json({ sentiment: "positive", confidence: 0.9 }),
+        );
+        const res = await hire();
+        expect(res.status).toBe(200);
+        const body = await json<{ result: { sentiment: string }; agent: { slug: string } }>(res);
+        expect(body.result.sentiment).toBe("positive");
+        expect(body.agent.slug).toBe("sentiment");
     });
 });
 

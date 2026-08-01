@@ -1,11 +1,15 @@
+// Minimal payer: hires one agent by slug, no LLM involved.
+//
+//   npm run e2e -- crypto-price '{"coin":"bitcoin"}'
+//
+// This is the smallest thing that proves the rail works end to end. For the
+// agent that *chooses* who to hire, see `npm run hire`.
 import "dotenv/config";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import {
-    createClientHederaSigner,
-    PrivateKey as HederaPrivateKey,
-} from "@x402/hedera";
+import { createClientHederaSigner, PrivateKey } from "@x402/hedera";
 import { ExactHederaScheme } from "@x402/hedera/exact/client";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
+import { hashscanTx, formatHbar } from "../src/core/hashscan.js";
 
 const required = (name: string): string => {
     const value = process.env[name];
@@ -13,47 +17,44 @@ const required = (name: string): string => {
     return value;
 };
 
-const accountId = required("HEDERA_CLIENT_ID");
-const privateKey = required("HEDERA_CLIENT_KEY");
-const serverUrl = process.env.SERVER_URL ?? "http://localhost:4021";
-const product = process.env.E2E_PRODUCT ?? "spot-price";
-const symbol = process.env.E2E_SYMBOL ?? "AAPL";
+const [slug = "crypto-price", rawInput = '{"coin":"bitcoin"}'] = process.argv.slice(2);
+const gateway = process.env.SERVER_URL ?? "http://localhost:4021";
 
 // Note: fromStringECDSA matches Hedera Portal default accounts.
-// If your account key is ED25519, switch to HederaPrivateKey.fromStringED25519.
+// If your account key is ED25519, switch to PrivateKey.fromStringED25519.
 const signer = createClientHederaSigner(
-    accountId,
-    HederaPrivateKey.fromStringECDSA(privateKey),
-    { network: "hedera:testnet" },
+    required("HEDERA_CLIENT_ID"),
+    PrivateKey.fromStringECDSA(required("HEDERA_CLIENT_KEY")),
+    { network: process.env.HEDERA_NETWORK ?? "hedera:testnet" },
 );
 
-const client = new x402Client().register(
-    "hedera:*",
-    new ExactHederaScheme(signer),
-);
+const client = new x402Client().register("hedera:*", new ExactHederaScheme(signer));
 const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 const httpClient = new x402HTTPClient(client);
 
-const url = `${serverUrl}/data/${product}?symbol=${encodeURIComponent(symbol)}`;
+const url = `${gateway}/a/${slug}`;
+console.log(`-> POST ${url}`);
+console.log(`   input ${rawInput}`);
 
-console.log(`-> GET ${url}`);
-const res = await fetchWithPayment(url);
+const res = await fetchWithPayment(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: rawInput,
+});
+
 console.log(`<- HTTP ${res.status}`);
+console.log(JSON.stringify(await res.json(), null, 2));
 
-const body = await res.json();
-console.log("data:", JSON.stringify(body, null, 2));
+try {
+    const settlement = httpClient.getPaymentSettleResponse((n) => res.headers.get(n));
+    if (settlement?.success && settlement.transaction) {
+        const detail = await fetch(`${gateway}/registry/${slug}`);
+        const { listing } = (await detail.json()) as { listing: { priceTinybar: number } };
 
-const settlement = httpClient.getPaymentSettleResponse((name) =>
-    res.headers.get(name),
-);
-if (settlement) {
-    console.log("settlement:", {
-        success: settlement.success,
-        transaction: settlement.transaction,
-        payer: settlement.payer,
-    });
-} else {
-    console.log(
-        "no X-PAYMENT-RESPONSE header (request was not a paid request)",
-    );
+        console.log(`\npaid   ${formatHbar(listing.priceTinybar)}`);
+        console.log(`payer  ${settlement.payer}`);
+        console.log(`proof  ${hashscanTx(settlement.transaction)}`);
+    }
+} catch {
+    console.log("\n(no payment was settled for this request)");
 }
