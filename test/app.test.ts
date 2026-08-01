@@ -254,7 +254,7 @@ describe("activity feed", () => {
         const body = await json<Activity>(await app.request("/activity"));
         expect(body.calls).toHaveLength(1);
         expect(body.calls[0]?.txUrl).toBe(
-            "https://hashscan.io/testnet/transaction/1785546426.941066223",
+            "https://hashscan.io/testnet/transaction/0.0.7162784-1785546426-941066223",
         );
         expect(body.calls[0]?.agentName).toBe("Sentiment Classifier");
     });

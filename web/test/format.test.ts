@@ -18,16 +18,24 @@ describe("formatHbar", () => {
 });
 
 describe("hashscanTx", () => {
-  // The `@` form is what the facilitator actually returns on testnet.
-  it("strips the fee-payer prefix", () => {
-    expect(hashscanTx("0.0.7162784@1785546426.941066223")).toBe(
-      "https://hashscan.io/testnet/transaction/1785546426.941066223",
+  // The timestamp inside a transaction id is the *valid start*, not the
+  // consensus timestamp, so linking it to /transaction/<timestamp> 404s.
+  // Link the dashed transaction id instead.
+  it("links the dashed transaction id", () => {
+    expect(hashscanTx("0.0.7162784@1785548782.002379713")).toBe(
+      "https://hashscan.io/testnet/transaction/0.0.7162784-1785548782-002379713",
+    );
+  });
+
+  it("never emits a bare valid-start timestamp when a payer prefix is present", () => {
+    expect(hashscanTx("0.0.7162784@1785548782.002379713")).not.toContain(
+      "transaction/1785548782",
     );
   });
 
   it("passes a bare consensus timestamp through", () => {
-    expect(hashscanTx("1785546426.941066223")).toBe(
-      "https://hashscan.io/testnet/transaction/1785546426.941066223",
+    expect(hashscanTx("1785548789.683396104")).toBe(
+      "https://hashscan.io/testnet/transaction/1785548789.683396104",
     );
   });
 });

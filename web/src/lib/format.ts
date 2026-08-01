@@ -7,14 +7,20 @@ export const formatHbar = (tinybar: number | string): string => {
 };
 
 /**
- * The facilitator returns `<feePayer>@<seconds>.<nanos>`; HashScan's
- * transaction route wants the bare consensus timestamp.
+ * The facilitator returns `<payer>@<seconds>.<nanos>`, where the timestamp is
+ * the transaction's *valid start* — not its consensus timestamp. HashScan's
+ * `/transaction/<timestamp>` route resolves a consensus timestamp, so linking
+ * the valid-start value gives "not found". The dashed transaction id works and
+ * needs no lookup.
  */
 export const hashscanTx = (txId: string): string => {
-  const afterPayer = txId.includes("@") ? txId.slice(txId.indexOf("@") + 1) : txId;
-  const dashed = afterPayer.match(/^(\d+)-(\d+)$/);
-  const timestamp = dashed ? `${dashed[1]}.${dashed[2]}` : afterPayer;
-  return `${site.explorer}/transaction/${timestamp}`;
+  const at = txId.indexOf("@");
+  if (at !== -1) {
+    const payer = txId.slice(0, at);
+    const [seconds = "", nanos = ""] = txId.slice(at + 1).split(".");
+    return `${site.explorer}/transaction/${payer}-${seconds}-${nanos}`;
+  }
+  return `${site.explorer}/transaction/${txId}`;
 };
 
 export const hashscanAccount = (accountId: string): string =>

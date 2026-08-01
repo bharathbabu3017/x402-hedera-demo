@@ -1,35 +1,44 @@
 // Links every settled payment to its on-chain proof.
 //
-// The facilitator returns transaction ids as `<feePayer>@<seconds>.<nanos>`
-// (verified on testnet: "0.0.7162784@1785546426.941066223"). HashScan's
-// transaction route wants the bare `<seconds>.<nanos>` consensus timestamp,
-// while the mirror node REST API wants `<feePayer>-<seconds>-<nanos>`.
+// The facilitator returns transaction ids as `<payer>@<seconds>.<nanos>`
+// (verified on testnet: "0.0.7162784@1785548782.002379713"). That timestamp is
+// the transaction's *valid start*, NOT its consensus timestamp — for the
+// transaction above, consensus landed at 1785548789.683396104, about seven
+// seconds later.
+//
+// This matters because HashScan's `/transaction/<timestamp>` route resolves a
+// *consensus* timestamp, so feeding it the valid-start value yields "not
+// found". HashScan also accepts the dashed transaction id, which we can build
+// locally with no mirror-node lookup — so that's what we link to.
 
 const EXPLORER = "https://hashscan.io/testnet";
 
-/** `0.0.7162784@1785546426.941066223` -> `1785546426.941066223` */
-const consensusTimestamp = (txId: string): string => {
-    const afterPayer = txId.includes("@") ? txId.slice(txId.indexOf("@") + 1) : txId;
-    // Some renderings use dashes throughout: 0.0.x-1785546426-941066223
-    const dashed = afterPayer.match(/^(\d+)-(\d+)$/);
-    if (dashed) return `${dashed[1]}.${dashed[2]}`;
-    const fullyDashed = txId.match(/^\d+\.\d+\.\d+-(\d+)-(\d+)$/);
-    if (fullyDashed) return `${fullyDashed[1]}.${fullyDashed[2]}`;
-    return afterPayer;
+/**
+ * `0.0.7162784@1785548782.002379713` -> `0.0.7162784-1785548782-002379713`
+ *
+ * Falls back to returning the input untouched when there's no payer prefix to
+ * work with (a bare timestamp is assumed to already be a consensus timestamp).
+ */
+export const toTransactionPath = (txId: string): string => {
+    const at = txId.indexOf("@");
+    if (at !== -1) {
+        const payer = txId.slice(0, at);
+        const [seconds = "", nanos = ""] = txId.slice(at + 1).split(".");
+        return `${payer}-${seconds}-${nanos}`;
+    }
+    // Already dashed: 0.0.7162784-1785548782-002379713
+    if (/^\d+\.\d+\.\d+-\d+-\d+$/.test(txId)) return txId;
+    return txId;
 };
 
 export const hashscanTx = (txId: string): string =>
-    `${EXPLORER}/transaction/${consensusTimestamp(txId)}`;
+    `${EXPLORER}/transaction/${toTransactionPath(txId)}`;
 
 export const hashscanAccount = (accountId: string): string =>
     `${EXPLORER}/account/${accountId}`;
 
-/** Mirror node REST wants `<feePayer>-<seconds>-<nanos>`. */
-export const mirrorNodeTxId = (txId: string): string => {
-    const at = txId.indexOf("@");
-    if (at === -1) return txId;
-    return `${txId.slice(0, at)}-${consensusTimestamp(txId).replace(".", "-")}`;
-};
+/** The mirror node REST API wants the same dashed form. */
+export const mirrorNodeTxId = (txId: string): string => toTransactionPath(txId);
 
 /** 100_000_000 tinybar = 1 HBAR. Formatted for display, not arithmetic. */
 export const formatHbar = (tinybar: number | string): string => {
