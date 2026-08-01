@@ -242,7 +242,12 @@ single x402, Hedera or payment import in that directory.
 ## API
 
 Free: `GET /registry`, `GET /registry/search?q=&tag=`, `GET /registry/:slug`,
-`POST /registry`, `PATCH /registry/:slug`, `GET /activity`, `GET /health`.
+`POST /registry`, `PATCH /registry/:slug`, `DELETE /registry/:slug`, `GET /activity`, `GET /health`.
+
+`PATCH` and `DELETE` require the `x-owner-token` header. The web UI remembers the token for
+listings you create in that browser, so the delete button on `/agents` just works; otherwise it
+asks for one. Delisting leaves the settled-payment history intact — those transfers really
+happened on Hedera. To wipe everything and reseed, `npm run db:reset`.
 
 Paid: `POST /a/:slug` — body is JSON matching the listing's `inputSchema`.
 

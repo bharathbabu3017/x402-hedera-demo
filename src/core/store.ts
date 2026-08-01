@@ -179,6 +179,16 @@ export class MarketplaceStore {
         this.db.prepare(`UPDATE listings SET ${sets.join(", ")} WHERE slug = ?`).run(...values);
     }
 
+    /**
+     * Removes a listing. The `calls` ledger is deliberately left alone — those
+     * payments really happened on Hedera, and delisting an agent shouldn't
+     * rewrite that history. The activity feed falls back to the slug.
+     */
+    delete(slug: string): boolean {
+        const result = this.db.prepare(`DELETE FROM listings WHERE slug = ?`).run(slug);
+        return result.changes > 0;
+    }
+
     /** Records a settled payment. This ledger is what the activity feed and earnings read from. */
     recordCall(call: Omit<PaidCall, "id" | "createdAt">): void {
         this.db

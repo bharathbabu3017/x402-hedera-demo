@@ -228,6 +228,53 @@ export const getSellerCatalogue = async (): Promise<AgentOffer[]> => {
   return ((await res.json()) as { agents: AgentOffer[] }).agents;
 };
 
+/**
+ * Owner tokens are shown once at creation. Remembering them locally is what
+ * lets the delete button work without asking you to paste one back.
+ */
+const TOKEN_STORE = "owner-tokens";
+
+const readTokens = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(TOKEN_STORE) ?? "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
+export const rememberOwnerToken = (slug: string, token: string): void => {
+  localStorage.setItem(TOKEN_STORE, JSON.stringify({ ...readTokens(), [slug]: token }));
+};
+
+export const getOwnerToken = (slug: string): string | undefined => readTokens()[slug];
+
+export const forgetOwnerToken = (slug: string): void => {
+  const tokens = readTokens();
+  delete tokens[slug];
+  localStorage.setItem(TOKEN_STORE, JSON.stringify(tokens));
+};
+
+export class NotOwner extends Error {
+  constructor() {
+    super("That owner token doesn't match this listing.");
+  }
+}
+
+export const deleteListing = async (slug: string, token: string): Promise<void> => {
+  let res: Response;
+  try {
+    res = await fetch(`${site.apiBase}/registry/${encodeURIComponent(slug)}`, {
+      method: "DELETE",
+      headers: { "x-owner-token": token },
+    });
+  } catch {
+    throw new GatewayDown();
+  }
+  if (res.status === 403) throw new NotOwner();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  forgetOwnerToken(slug);
+};
+
 export const createListing = async (draft: unknown): Promise<CreateResult> => {
   let res: Response;
   try {

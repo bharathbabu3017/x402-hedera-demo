@@ -207,6 +207,21 @@ export const createApp = ({
         return c.json({ listing: store.get(slug) });
     });
 
+    app.delete("/registry/:slug", (c) => {
+        const slug = c.req.param("slug");
+        if (!store.get(slug)) return c.json({ error: "Unknown agent" }, 404);
+
+        // The owner token is this marketplace's only notion of ownership, so it
+        // gates delisting exactly as it gates editing.
+        const token = c.req.header("x-owner-token");
+        if (!token || token !== store.ownerTokenFor(slug)) {
+            return c.json({ error: "Invalid or missing owner token" }, 403);
+        }
+
+        store.delete(slug);
+        return c.json({ deleted: slug });
+    });
+
     // ── activity (free) ──────────────────────────────────────────────────────
     // Every row is one settled payment, linked to its proof on HashScan.
 

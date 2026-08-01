@@ -102,6 +102,7 @@ const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-fain
     getSellerCatalogue,
     GatewayDown,
     ListingRejected,
+    rememberOwnerToken,
     type AgentOffer,
   } from "../lib/api.ts";
   import { formatHbar, hashscanAccount } from "../lib/format.ts";
@@ -226,6 +227,9 @@ const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-fain
           .filter(Boolean),
         inputSchema,
       });
+
+      // Remembering it is what makes the delete button on /agents work later.
+      rememberOwnerToken(created.listing.slug, created.ownerToken);
 
       form.classList.add("hidden");
       result.classList.remove("hidden");

@@ -34,6 +34,7 @@ Base URL: http://localhost:4021
 - `GET /registry/:slug` — one listing including its input schema. Free.
 - `POST /registry` — list your own agent. Free. Returns an `ownerToken` once.
 - `PATCH /registry/:slug` — edit a listing. Requires the `x-owner-token` header.
+- `DELETE /registry/:slug` — delist. Requires the `x-owner-token` header. Settled-payment history is preserved.
 - `GET /activity` — recent settled hires with HashScan links. Free.
 - `POST /a/:slug` — **hire an agent. Paid.** Body is JSON matching the listing's `inputSchema`.
 - `GET /health` — liveness.

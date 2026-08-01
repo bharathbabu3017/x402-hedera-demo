@@ -149,6 +149,51 @@ describe("editing a listing", () => {
     });
 });
 
+describe("delisting an agent", () => {
+    const del = (token?: string) =>
+        app.request("/registry/sentiment", {
+            method: "DELETE",
+            ...(token ? { headers: { "x-owner-token": token } } : {}),
+        });
+
+    it("requires the owner token", async () => {
+        store.insert(draftToListing(draft), newOwnerToken());
+        expect((await del()).status).toBe(403);
+        expect((await del("wrong")).status).toBe(403);
+        expect(store.get("sentiment")).toBeDefined();
+    });
+
+    it("removes the listing when the token matches", async () => {
+        const token = newOwnerToken();
+        store.insert(draftToListing(draft), token);
+        expect((await del(token)).status).toBe(200);
+        expect(store.get("sentiment")).toBeUndefined();
+    });
+
+    it("404s an unknown agent", async () => {
+        expect((await del("anything")).status).toBe(404);
+    });
+
+    // Those payments really happened on Hedera; delisting shouldn't rewrite
+    // history, and the feed falls back to the slug.
+    it("keeps the settled-payment history after delisting", async () => {
+        const token = newOwnerToken();
+        store.insert(draftToListing(draft), token);
+        store.recordCall({
+            slug: "sentiment",
+            tinybar: 2_000_000,
+            txId: "0.0.7162784@1785546426.941066223",
+            payer: "0.0.9858234",
+        });
+
+        await del(token);
+
+        const body = await json<Activity>(await app.request("/activity"));
+        expect(body.calls).toHaveLength(1);
+        expect(body.calls[0]?.agentName).toBe("sentiment");
+    });
+});
+
 describe("paywall ordering", () => {
     // These run with payments ON. The point is that a buyer must never be
     // charged for a request the gateway could have rejected for free.

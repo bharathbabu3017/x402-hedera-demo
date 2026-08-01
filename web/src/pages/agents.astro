@@ -40,7 +40,14 @@ import Footer from "../components/Footer.astro";
 </Base>
 
 <script>
-  import { getRegistry, GatewayDown, type Listing } from "../lib/api.ts";
+  import {
+    getRegistry,
+    deleteListing,
+    getOwnerToken,
+    GatewayDown,
+    NotOwner,
+    type Listing,
+  } from "../lib/api.ts";
   import { formatHbar, hashscanAccount, relativeTime } from "../lib/format.ts";
   import { site } from "../data/site.ts";
 
@@ -85,6 +92,7 @@ import Footer from "../components/Footer.astro";
             <th class="px-4 py-2.5 text-right">calls</th>
             <th class="px-4 py-2.5 text-right">earned</th>
             <th class="px-4 py-2.5">pays out to</th>
+            <th class="px-4 py-2.5"><span class="sr-only">actions</span></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border bg-surface">
@@ -102,6 +110,14 @@ import Footer from "../components/Footer.astro";
                 <td class="px-4 py-3">
                   <a href="${hashscanAccount(l.payToAccount)}" target="_blank" rel="noopener"
                      class="font-mono text-xs text-muted hover:text-accent">${esc(l.payToAccount)} ↗</a>
+                </td>
+                <td class="px-4 py-3 text-right" data-actions="${esc(l.slug)}">
+                  <button type="button" data-delete="${esc(l.slug)}" title="Delist this agent"
+                    class="rounded p-1 text-faint transition-colors hover:bg-red-50 hover:text-red-600">
+                    <svg viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                      <path d="M3 3l10 10M13 3L3 13" />
+                    </svg>
+                  </button>
                 </td>
               </tr>`,
             )
@@ -131,6 +147,61 @@ import Footer from "../components/Footer.astro";
         .join("")}
     </div>`;
 
+  /**
+   * Delisting needs the owner token — the marketplace's only notion of
+   * ownership. We remember tokens for listings created in this browser, and
+   * ask for one otherwise. Confirmation is inline rather than a modal.
+   */
+  const wireDelete = () => {
+    out.querySelectorAll<HTMLButtonElement>("[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const slug = btn.dataset["delete"]!;
+        const cell = out.querySelector<HTMLElement>(`[data-actions="${slug}"]`);
+        if (!cell) return;
+
+        const known = getOwnerToken(slug);
+        cell.innerHTML = `
+          <div class="flex items-center justify-end gap-1.5">
+            ${
+              known
+                ? ""
+                : `<input data-token placeholder="owner token"
+                     class="field w-36 rounded border border-border bg-surface px-2 py-1 font-mono text-[11px]" />`
+            }
+            <button type="button" data-confirm class="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700">delete</button>
+            <button type="button" data-cancel class="rounded border border-border px-2 py-1 text-[11px] text-muted hover:text-text">cancel</button>
+          </div>
+          <div data-msg class="mt-1 text-right text-[11px] text-red-600"></div>`;
+
+        const tokenInput = cell.querySelector<HTMLInputElement>("[data-token]");
+        const msg = cell.querySelector<HTMLElement>("[data-msg]")!;
+        tokenInput?.focus();
+
+        cell.querySelector("[data-cancel]")!.addEventListener("click", render);
+
+        cell.querySelector("[data-confirm]")!.addEventListener("click", async () => {
+          const token = known ?? tokenInput?.value.trim();
+          if (!token) {
+            msg.textContent = "Token required";
+            return;
+          }
+          try {
+            await deleteListing(slug, token);
+            all = all.filter((l) => l.slug !== slug);
+            render();
+          } catch (err) {
+            msg.textContent =
+              err instanceof NotOwner
+                ? "Wrong token"
+                : err instanceof GatewayDown
+                  ? "Gateway offline"
+                  : (err as Error).message;
+          }
+        });
+      });
+    });
+  };
+
   const setViewButtons = () => {
     document.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((btn) => {
       const active = btn.dataset["view"] === view;
@@ -152,6 +223,7 @@ import Footer from "../components/Footer.astro";
 
     out.innerHTML = rows.length === 0 ? "" : view === "table" ? tableView(rows) : cardsView(rows);
     setViewButtons();
+    if (view === "table") wireDelete();
   };
 
   document.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((btn) => {
