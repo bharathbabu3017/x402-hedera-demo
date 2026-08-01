@@ -9,6 +9,7 @@
     "db:reset": "rm -rf data && echo 'marketplace db cleared \u2014 next start reseeds'",
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/server/index.ts",
     "e2e": "tsx scripts/e2e-pay.ts",
+    "hire": "tsx scripts/hire.ts",
     "start": "NODE_NO_WARNINGS=1 tsx src/server/index.ts",
     "test": "NODE_NO_WARNINGS=1 vitest run",
     "test:watch": "NODE_NO_WARNINGS=1 vitest",
