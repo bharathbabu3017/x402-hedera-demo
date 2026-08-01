@@ -79,6 +79,55 @@ app.post("/chat", async (c) => {
     });
 });
 
+/**
+ * Hire one named agent directly, with inputs supplied by the caller. No model
+ * involved — this is "try it" from an agent's page, not a task to be planned.
+ * Streams the same events as /chat so the UI can render it identically.
+ */
+app.post("/hire", async (c) => {
+    let body: { slug?: string; input?: Record<string, unknown> };
+    try {
+        body = await c.req.json();
+    } catch {
+        return c.json({ error: "Body must be JSON" }, 400);
+    }
+
+    const slug = (body.slug ?? "").trim();
+    if (!slug) return c.json({ error: "A slug is required" }, 400);
+
+    // runTask's plan steps carry inputs as name/value pairs.
+    const input = Object.entries(body.input ?? {}).map(([name, value]) => ({
+        name,
+        value: String(value ?? ""),
+    }));
+
+    const plan = PlanSchema.parse({
+        reasoning: `Direct hire of ${slug}, chosen by the user rather than by a model.`,
+        steps: [
+            {
+                slug,
+                reason: "Selected directly from the agent's page.",
+                input,
+                usesOutputOf: null,
+                outputIntoField: null,
+            },
+        ],
+    });
+
+    return streamSSE(c, async (stream) => {
+        try {
+            for await (const event of runTask(`Direct hire: ${slug}`, config, plan)) {
+                await stream.writeSSE({ data: JSON.stringify(event) });
+            }
+        } catch (err) {
+            await stream.writeSSE({
+                data: JSON.stringify({ type: "error", message: (err as Error).message }),
+            });
+        }
+        await stream.writeSSE({ data: JSON.stringify({ type: "close" }) });
+    });
+});
+
 app.get("/health", (c) => c.json({ ok: true, accountId: config.accountId }));
 
 const port = Number(process.env["BUYER_PORT"] ?? "4040");

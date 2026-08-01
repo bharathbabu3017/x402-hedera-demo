@@ -19,7 +19,18 @@ const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-fain
       straight to your Hedera account. You write no payment code and we never hold your money.
     </p>
 
-    <form id="list-form" class="mt-10 grid gap-6">
+    <!-- Populated from the example seller's catalogue: anything it serves that
+         isn't listed yet. Lets you demo listing a brand-new agent in seconds. -->
+    <div id="ready" class="mt-8 hidden rounded-xl border border-border bg-surface-2/60 p-5">
+      <div class="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Ready to list</div>
+      <p class="mt-1.5 text-sm text-muted">
+        Agents running on the example seller service that aren't on the marketplace yet.
+        Click one to fill this form.
+      </p>
+      <div id="ready-list" class="mt-4 grid gap-2 sm:grid-cols-2"></div>
+    </div>
+
+    <form id="list-form" class="mt-8 grid gap-6">
       <div>
         <label class={label} for="name">Name</label>
         <input id="name" name="name" required maxlength="80" class={`mt-2 ${field}`} placeholder="Sentiment Classifier" />
@@ -85,7 +96,14 @@ const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-fain
 </Base>
 
 <script>
-  import { createListing, GatewayDown, ListingRejected } from "../lib/api.ts";
+  import {
+    createListing,
+    getRegistry,
+    getSellerCatalogue,
+    GatewayDown,
+    ListingRejected,
+    type AgentOffer,
+  } from "../lib/api.ts";
   import { formatHbar, hashscanAccount } from "../lib/format.ts";
   import { site } from "../data/site.ts";
 
@@ -118,6 +136,60 @@ const label = "block font-mono text-[11px] uppercase tracking-[0.14em] text-fain
 
   addRow("text", "Text to classify");
   document.getElementById("add-field")!.addEventListener("click", () => addRow());
+
+  // ── one-click fill from the example seller's catalogue ────────────────────
+  const fillFrom = (offer: AgentOffer) => {
+    (document.getElementById("name") as HTMLInputElement).value = offer.name;
+    (document.getElementById("description") as HTMLTextAreaElement).value = offer.description;
+    (document.getElementById("upstreamUrl") as HTMLInputElement).value = offer.upstreamUrl;
+    (document.getElementById("priceHbar") as HTMLInputElement).value = String(
+      offer.suggestedPriceTinybar / 1e8,
+    );
+    (document.getElementById("tags") as HTMLInputElement).value = offer.tags.join(", ");
+
+    rows.innerHTML = "";
+    for (const [field, spec] of Object.entries(offer.inputSchema)) {
+      addRow(field, spec.description);
+      const row = rows.lastElementChild!;
+      (row.querySelector(".field-type") as HTMLSelectElement).value = spec.type;
+      (row.querySelector(".field-required") as HTMLInputElement).checked = spec.required;
+    }
+
+    document.getElementById("name")!.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  try {
+    const [offers, listed] = await Promise.all([getSellerCatalogue(), getRegistry()]);
+    const takenSlugs = new Set(listed.map((l) => l.slug));
+    const takenUrls = new Set(listed.map((l) => l.upstreamUrl));
+    const available = offers.filter((o) => !takenSlugs.has(o.slug) && !takenUrls.has(o.upstreamUrl));
+
+    if (available.length > 0) {
+      const panel = document.getElementById("ready")!;
+      panel.classList.remove("hidden");
+      document.getElementById("ready-list")!.innerHTML = available
+        .map(
+          (o) => `<button type="button" data-offer="${escape(o.slug)}"
+            class="card rounded-lg border border-border bg-surface p-3 text-left">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-medium">${escape(o.name)}</span>
+              <span class="tabular font-mono text-xs text-accent">${o.suggestedPriceTinybar / 1e8} ℏ</span>
+            </div>
+            <div class="mt-1 line-clamp-2 text-xs text-muted">${escape(o.description)}</div>
+          </button>`,
+        )
+        .join("");
+
+      panel.querySelectorAll<HTMLButtonElement>("[data-offer]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const offer = available.find((o) => o.slug === btn.dataset["offer"]);
+          if (offer) fillFrom(offer);
+        });
+      });
+    }
+  } catch {
+    // The seller service is optional — a real seller types their own URL.
+  }
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

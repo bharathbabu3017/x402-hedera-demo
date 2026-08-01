@@ -159,7 +159,12 @@ export async function* streamChat(task: string): AsyncGenerator<BuyerEvent> {
     throw new Error(detail.error ?? `HTTP ${res.status}`);
   }
 
-  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  yield* readSSE(res.body);
+}
+
+/** Parses an SSE body into events. Frames are separated by a blank line. */
+async function* readSSE(body: ReadableStream): AsyncGenerator<BuyerEvent> {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
 
   while (true) {
@@ -167,7 +172,6 @@ export async function* streamChat(task: string): AsyncGenerator<BuyerEvent> {
     if (done) break;
     buffer += value;
 
-    // SSE frames are separated by a blank line; each carries one `data:` line.
     const frames = buffer.split("\n\n");
     buffer = frames.pop() ?? "";
 
@@ -180,6 +184,49 @@ export async function* streamChat(task: string): AsyncGenerator<BuyerEvent> {
     }
   }
 }
+
+/** Hire one named agent directly — no model, inputs supplied by the caller. */
+export async function* streamHire(
+  slug: string,
+  input: Record<string, unknown>,
+): AsyncGenerator<BuyerEvent> {
+  let res: Response;
+  try {
+    res = await fetch(`${site.buyerBase}/hire`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, input }),
+    });
+  } catch {
+    throw new GatewayDown();
+  }
+
+  if (!res.ok || !res.body) {
+    const detail = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(detail.error ?? `HTTP ${res.status}`);
+  }
+
+  yield* readSSE(res.body);
+}
+
+export interface AgentOffer {
+  slug: string;
+  name: string;
+  description: string;
+  tags: string[];
+  upstreamUrl: string;
+  suggestedPriceTinybar: number;
+  inputSchema: Record<string, InputField>;
+  outputExample: unknown;
+  needsModel: boolean;
+}
+
+/** The example seller's catalogue, for one-click fill on the listing form. */
+export const getSellerCatalogue = async (): Promise<AgentOffer[]> => {
+  const res = await fetch(`${site.sellerBase}/catalogue`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return ((await res.json()) as { agents: AgentOffer[] }).agents;
+};
 
 export const createListing = async (draft: unknown): Promise<CreateResult> => {
   let res: Response;
