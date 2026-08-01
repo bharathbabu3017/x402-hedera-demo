@@ -15,8 +15,8 @@ export const site = {
   x402DocsUrl: "https://docs.x402.org",
   faucetUrl: "https://portal.hedera.com",
   nav: [
-    { label: "Browse", href: "/#browse" },
     { label: "Chat", href: "/chat" },
+    { label: "Agents", href: "/agents" },
     { label: "List your agent", href: "/list" },
     { label: "Activity", href: "/activity" },
   ],

@@ -1,0 +1,188 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+---
+<Base
+  title="Agents | Agent Marketplace"
+  description="Every agent listed on the marketplace — price, payee, input schema and live earnings."
+>
+  <Nav />
+  <main class="mx-auto max-w-6xl px-6 py-12">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Agents</h1>
+        <p class="mt-2 max-w-[60ch] text-muted">
+          Everything for hire, with the price and the account each payment settles to.
+          Discovery is free — only the work costs money.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="w-56">
+          <span class="sr-only">Search</span>
+          <input id="q" type="search" placeholder="Search…"
+            class="field w-full rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text placeholder:text-faint" />
+        </label>
+        <div class="flex rounded-lg border border-border p-0.5">
+          <button type="button" data-view="table"
+            class="rounded-md px-2.5 py-1 font-mono text-[11px] text-muted transition-colors">table</button>
+          <button type="button" data-view="cards"
+            class="rounded-md px-2.5 py-1 font-mono text-[11px] text-muted transition-colors">cards</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="totals" class="mt-8 grid gap-4 sm:grid-cols-4"></div>
+    <p id="status" class="mt-8 font-mono text-xs text-faint">Loading…</p>
+    <div id="out" class="mt-4"></div>
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  import { getRegistry, GatewayDown, type Listing } from "../lib/api.ts";
+  import { formatHbar, hashscanAccount, relativeTime } from "../lib/format.ts";
+  import { site } from "../data/site.ts";
+
+  const out = document.getElementById("out")!;
+  const totals = document.getElementById("totals")!;
+  const status = document.getElementById("status")!;
+  const q = document.getElementById("q") as HTMLInputElement;
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    );
+
+  let all: Listing[] = [];
+  let view: "table" | "cards" = (localStorage.getItem("agents-view") as "table" | "cards") ?? "table";
+
+  const stat = (label: string, value: string) => `
+    <div class="rounded-xl border border-border bg-surface p-4">
+      <div class="font-mono text-[10px] uppercase tracking-wider text-faint">${label}</div>
+      <div class="tabular mt-1 text-xl font-semibold">${value}</div>
+    </div>`;
+
+  const fieldList = (l: Listing) => {
+    const entries = Object.entries(l.inputSchema);
+    if (entries.length === 0) return '<span class="text-faint">none</span>';
+    return entries
+      .map(
+        ([name, spec]) =>
+          `<span class="mr-1.5 inline-block rounded border border-border px-1.5 py-px font-mono text-[10px] text-muted">${esc(name)}<span class="text-faint">:${esc(spec.type)}</span>${spec.required ? '<span class="text-accent">*</span>' : ""}</span>`,
+      )
+      .join("");
+  };
+
+  const tableView = (rows: Listing[]) => `
+    <div class="overflow-x-auto rounded-xl border border-border">
+      <table class="w-full min-w-[52rem] text-left text-sm">
+        <thead class="bg-surface-2 font-mono text-[10px] uppercase tracking-wider text-faint">
+          <tr>
+            <th class="px-4 py-2.5">agent</th>
+            <th class="px-4 py-2.5">inputs</th>
+            <th class="px-4 py-2.5 text-right">price</th>
+            <th class="px-4 py-2.5 text-right">calls</th>
+            <th class="px-4 py-2.5 text-right">earned</th>
+            <th class="px-4 py-2.5">pays out to</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border bg-surface">
+          ${rows
+            .map(
+              (l) => `<tr class="transition-colors hover:bg-surface-2">
+                <td class="px-4 py-3">
+                  <a href="/agent?slug=${encodeURIComponent(l.slug)}" class="font-medium text-text hover:text-accent">${esc(l.name)}</a>
+                  <div class="mt-0.5 max-w-[34ch] truncate text-xs text-muted" title="${esc(l.description)}">${esc(l.description)}</div>
+                </td>
+                <td class="px-4 py-3">${fieldList(l)}</td>
+                <td class="tabular px-4 py-3 text-right font-mono text-accent">${formatHbar(l.priceTinybar)}</td>
+                <td class="tabular px-4 py-3 text-right font-mono text-muted">${l.calls}</td>
+                <td class="tabular px-4 py-3 text-right font-mono text-muted">${formatHbar(l.earnedTinybar)}</td>
+                <td class="px-4 py-3">
+                  <a href="${hashscanAccount(l.payToAccount)}" target="_blank" rel="noopener"
+                     class="font-mono text-xs text-muted hover:text-accent">${esc(l.payToAccount)} ↗</a>
+                </td>
+              </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+
+  const cardsView = (rows: Listing[]) => `
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      ${rows
+        .map(
+          (l) => `<a href="/agent?slug=${encodeURIComponent(l.slug)}"
+            class="card flex flex-col rounded-xl border border-border bg-surface p-5">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="font-medium leading-snug">${esc(l.name)}</h2>
+              <span class="tabular shrink-0 font-mono text-sm font-medium text-accent">${formatHbar(l.priceTinybar)}</span>
+            </div>
+            <p class="mt-2.5 line-clamp-3 flex-1 text-sm leading-relaxed text-muted">${esc(l.description)}</p>
+            <div class="mt-3">${fieldList(l)}</div>
+            <div class="tabular mt-4 flex items-center justify-between border-t border-border pt-3 font-mono text-[11px] text-faint">
+              <span>${l.calls} ${l.calls === 1 ? "call" : "calls"} · ${formatHbar(l.earnedTinybar)}</span>
+              <span>${relativeTime(l.createdAt)}</span>
+            </div>
+          </a>`,
+        )
+        .join("")}
+    </div>`;
+
+  const setViewButtons = () => {
+    document.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((btn) => {
+      const active = btn.dataset["view"] === view;
+      btn.className = `rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
+        active ? "bg-text text-bg" : "text-muted hover:text-text"
+      }`;
+    });
+  };
+
+  const render = () => {
+    const term = q.value.trim().toLowerCase();
+    const rows = term
+      ? all.filter((l) => `${l.name} ${l.description} ${l.tags.join(" ")}`.toLowerCase().includes(term))
+      : all;
+
+    status.textContent = rows.length
+      ? `${rows.length} of ${all.length} agents`
+      : `No agents match “${q.value.trim()}”.`;
+
+    out.innerHTML = rows.length === 0 ? "" : view === "table" ? tableView(rows) : cardsView(rows);
+    setViewButtons();
+  };
+
+  document.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      view = btn.dataset["view"] as "table" | "cards";
+      localStorage.setItem("agents-view", view);
+      render();
+    });
+  });
+
+  try {
+    all = await getRegistry();
+
+    // Sellers are distinct payee accounts — the point being that money reaches
+    // different people, not a platform account.
+    const sellers = new Set(all.map((l) => l.payToAccount)).size;
+    const earned = all.reduce((sum, l) => sum + l.earnedTinybar, 0);
+    const calls = all.reduce((sum, l) => sum + l.calls, 0);
+    totals.innerHTML =
+      stat("agents", String(all.length)) +
+      stat("sellers", String(sellers)) +
+      stat("hires", String(calls)) +
+      stat("paid out", formatHbar(earned));
+
+    q.addEventListener("input", render);
+    render();
+  } catch (err) {
+    status.className = "mt-8 text-sm text-muted";
+    status.innerHTML =
+      err instanceof GatewayDown
+        ? `Can't reach the marketplace at <code class="font-mono text-text">${site.apiBase}</code>. Start it with <code class="font-mono text-text">npm run dev</code>.`
+        : `Failed to load agents: ${esc((err as Error).message)}`;
+  }
+</script>

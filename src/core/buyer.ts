@@ -8,6 +8,7 @@ import { wrapFetchWithPayment } from "@x402/fetch";
 import { createClientHederaSigner, PrivateKey } from "@x402/hedera";
 import { ExactHederaScheme } from "@x402/hedera/exact/client";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
+import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { hashscanTx } from "./hashscan.js";
 import { buildInput, PlanError, projectedCost, unknownSlugs, type PricedListing } from "./plan.js";
 
@@ -59,12 +60,19 @@ export interface BuyerConfig {
     maxSpendTinybar: number;
 }
 
+/** The protocol exchange behind one hire, surfaced so the UI can show it. */
+export interface Exchange {
+    /** The decoded `payment-required` challenge the gateway answered 402 with. */
+    challenge?: unknown;
+}
+
 export type BuyerEvent =
     | { type: "listings"; listings: Listing[] }
     | { type: "thinking" }
     | { type: "plan"; plan: Plan; projectedTinybar: number; budgetTinybar: number }
     | { type: "refused"; projectedTinybar: number; budgetTinybar: number; skipped: string[] }
     | { type: "step-start"; index: number; slug: string; name: string; priceTinybar: number }
+    | { type: "step-402"; index: number; slug: string; challenge: unknown }
     | {
           type: "step-paid";
           index: number;
@@ -73,6 +81,7 @@ export type BuyerEvent =
           payTo: string;
           txId: string;
           txUrl: string;
+          settlement: unknown;
       }
     | { type: "step-result"; index: number; slug: string; result: unknown }
     | { type: "step-failed"; index: number; slug: string; message: string; charged: false }
@@ -229,7 +238,29 @@ export async function* runTask(
         { network: config.network },
     );
     const x402 = new x402Client().register("hedera:*", new ExactHederaScheme(signer));
-    const pay = wrapFetchWithPayment(fetch, x402);
+
+    // `wrapFetchWithPayment` handles 402 → sign → retry internally, so the
+    // challenge never surfaces to the caller. Passing it a recording fetch lets
+    // us watch the exchange go past and show it — which is most of what makes
+    // the protocol legible to someone watching a demo.
+    let exchange: Exchange = {};
+    const recordingFetch: typeof fetch = async (input, init) => {
+        const res = await fetch(input, init);
+
+        if (res.status === 402) {
+            const header = res.headers.get("payment-required");
+            if (header) {
+                try {
+                    exchange.challenge = decodePaymentRequiredHeader(header);
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
+        return res;
+    };
+
+    const pay = wrapFetchWithPayment(recordingFetch, x402);
     const httpClient = new x402HTTPClient(x402);
 
     const outputs: unknown[] = [];
@@ -254,6 +285,7 @@ export async function* runTask(
             break;
         }
 
+        exchange = {};
         let res: Response;
         try {
             res = await pay(`${config.gatewayUrl}/a/${step.slug}`, {
@@ -264,6 +296,10 @@ export async function* runTask(
         } catch (err) {
             yield { type: "step-failed", index, slug: step.slug, message: (err as Error).message, charged: false };
             break;
+        }
+
+        if (exchange.challenge) {
+            yield { type: "step-402", index, slug: step.slug, challenge: exchange.challenge };
         }
 
         if (!res.ok) {
@@ -298,6 +334,7 @@ export async function* runTask(
                 payTo: listing.payToAccount,
                 txId: settlement.transaction,
                 txUrl: hashscanTx(settlement.transaction),
+                settlement,
             };
         }
 

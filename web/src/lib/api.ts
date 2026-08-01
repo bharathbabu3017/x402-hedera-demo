@@ -110,6 +110,7 @@ export type BuyerEvent =
     }
   | { type: "refused"; projectedTinybar: number; budgetTinybar: number; skipped: string[] }
   | { type: "step-start"; index: number; slug: string; name: string; priceTinybar: number }
+  | { type: "step-402"; index: number; slug: string; challenge: unknown }
   | {
       type: "step-paid";
       index: number;
@@ -118,6 +119,7 @@ export type BuyerEvent =
       payTo: string;
       txId: string;
       txUrl: string;
+      settlement: unknown;
     }
   | { type: "step-result"; index: number; slug: string; result: unknown }
   | { type: "step-failed"; index: number; slug: string; message: string; charged: false }
