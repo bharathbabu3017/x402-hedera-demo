@@ -1,0 +1,202 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+
+const field =
+  "w-full rounded-lg border border-border bg-surface/60 px-4 py-2.5 text-sm text-text placeholder:text-faint transition focus:border-accent/50 focus:outline-none";
+const label = "block font-mono text-xs uppercase tracking-[0.14em] text-faint";
+---
+<Base
+  title="List your agent | Agent Marketplace"
+  description="Monetise an endpoint you already run. Set a price, give your Hedera account, and get paid per call."
+>
+  <Nav />
+  <main class="mx-auto max-w-3xl px-6 py-16">
+    <h1 class="text-3xl font-semibold tracking-tighter md:text-4xl">List your agent</h1>
+    <p class="mt-4 max-w-[60ch] leading-relaxed text-muted">
+      Point us at an endpoint you already run. We front it with a paywall and route payment
+      straight to your Hedera account. You write no payment code and we never hold your money.
+    </p>
+
+    <form id="list-form" class="mt-10 grid gap-6">
+      <div>
+        <label class={label} for="name">Name</label>
+        <input id="name" name="name" required maxlength="80" class={`mt-2 ${field}`} placeholder="Sentiment Classifier" />
+      </div>
+
+      <div>
+        <label class={label} for="description">What it does</label>
+        <textarea id="description" name="description" required rows="3" class={`mt-2 ${field}`}
+          placeholder="Classifies the sentiment of a block of text as positive, negative or neutral, with a confidence score."></textarea>
+        <p class="mt-2 text-xs text-faint">
+          Buying agents read this to decide whether to hire you. Be specific — vague listings don't get picked.
+        </p>
+      </div>
+
+      <div class="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label class={label} for="upstreamUrl">Your endpoint</label>
+          <input id="upstreamUrl" name="upstreamUrl" required type="url" class={`mt-2 ${field}`} placeholder="http://localhost:4030/sentiment" />
+          <p class="mt-2 text-xs text-faint">We POST JSON here and return whatever you answer.</p>
+        </div>
+        <div>
+          <label class={label} for="payToAccount">Your Hedera account</label>
+          <input id="payToAccount" name="payToAccount" required pattern="\\d+\\.\\d+\\.\\d+" class={`mt-2 ${field}`} placeholder="0.0.9864248" />
+          <p class="mt-2 text-xs text-faint">Every payment lands here. Checked against the mirror node.</p>
+        </div>
+      </div>
+
+      <div class="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label class={label} for="priceHbar">Price per call (ℏ)</label>
+          <input id="priceHbar" name="priceHbar" required type="number" step="0.001" min="0.001" value="0.02" class={`mt-2 ${field}`} />
+        </div>
+        <div>
+          <label class={label} for="tags">Tags</label>
+          <input id="tags" name="tags" class={`mt-2 ${field}`} placeholder="nlp, sentiment" />
+        </div>
+      </div>
+
+      <fieldset class="rounded-xl border border-border bg-surface/40 p-5">
+        <legend class="px-2 font-mono text-xs uppercase tracking-[0.14em] text-faint">Input schema</legend>
+        <p class="text-xs text-faint">
+          The fields your endpoint expects. A buying agent fills these in from the description.
+        </p>
+        <div id="schema-rows" class="mt-4 grid gap-3"></div>
+        <button type="button" id="add-field"
+          class="mt-4 rounded-lg border border-border px-3 py-1.5 font-mono text-xs text-muted transition hover:border-accent/50 hover:text-accent">
+          + add field
+        </button>
+      </fieldset>
+
+      <div class="flex items-center gap-4">
+        <button type="submit" id="submit"
+          class="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-bg shadow-[0_8px_28px_-10px_rgb(52_211_153/0.6)] transition-all hover:bg-accent-dim active:scale-[0.98] disabled:opacity-50">
+          List agent
+        </button>
+        <span id="form-status" class="text-sm text-muted"></span>
+      </div>
+    </form>
+
+    <div id="result" class="mt-10 hidden"></div>
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  import { createListing, GatewayDown, ListingRejected } from "../lib/api.ts";
+  import { formatHbar, hashscanAccount } from "../lib/format.ts";
+  import { site } from "../data/site.ts";
+
+  const form = document.getElementById("list-form") as HTMLFormElement;
+  const rows = document.getElementById("schema-rows")!;
+  const status = document.getElementById("form-status")!;
+  const submit = document.getElementById("submit") as HTMLButtonElement;
+  const result = document.getElementById("result")!;
+
+  const escape = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    );
+
+  const input =
+    "rounded-lg border border-border bg-surface/60 px-3 py-2 text-sm text-text placeholder:text-faint focus:border-accent/50 focus:outline-none";
+
+  const addRow = (name = "", description = "") => {
+    const row = document.createElement("div");
+    row.className = "grid grid-cols-[1fr_auto_2fr_auto] items-center gap-2";
+    row.innerHTML = `
+      <input class="${input} field-name" placeholder="field name" value="${escape(name)}" />
+      <select class="${input} field-type"><option value="string">string</option><option value="number">number</option></select>
+      <input class="${input} field-desc" placeholder="what this field is" value="${escape(description)}" />
+      <label class="flex items-center gap-1.5 font-mono text-xs text-faint">
+        <input type="checkbox" class="field-required accent-[#34d399]" checked /> req
+      </label>`;
+    rows.append(row);
+  };
+
+  addRow("text", "Text to classify");
+  document.getElementById("add-field")!.addEventListener("click", () => addRow());
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    status.textContent = "Checking your account on the mirror node…";
+    status.className = "text-sm text-muted";
+    submit.disabled = true;
+
+    const data = new FormData(form);
+    const inputSchema: Record<string, unknown> = {};
+    for (const row of rows.children) {
+      const name = (row.querySelector(".field-name") as HTMLInputElement).value.trim();
+      if (!name) continue;
+      inputSchema[name] = {
+        type: (row.querySelector(".field-type") as HTMLSelectElement).value,
+        required: (row.querySelector(".field-required") as HTMLInputElement).checked,
+        description: (row.querySelector(".field-desc") as HTMLInputElement).value.trim(),
+      };
+    }
+
+    // The form takes ℏ because that's how sellers think about price; the API
+    // takes tinybar because it's the atomic unit.
+    const priceTinybar = Math.round(Number(data.get("priceHbar")) * 1e8);
+
+    try {
+      const created = await createListing({
+        name: data.get("name"),
+        description: data.get("description"),
+        upstreamUrl: data.get("upstreamUrl"),
+        payToAccount: data.get("payToAccount"),
+        priceTinybar,
+        tags: String(data.get("tags") ?? "")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        inputSchema,
+      });
+
+      form.classList.add("hidden");
+      result.classList.remove("hidden");
+      result.innerHTML = `
+        <div class="rounded-xl border border-accent/30 bg-accent/5 p-6">
+          <h2 class="text-xl font-medium text-text">${escape(created.listing.name)} is live</h2>
+          <p class="mt-2 text-muted">
+            Listed at ${formatHbar(created.listing.priceTinybar)} per call. Payments settle to
+            <a href="${hashscanAccount(created.listing.payToAccount)}" target="_blank" rel="noopener"
+               class="font-mono text-accent hover:underline">${escape(created.listing.payToAccount)} ↗</a>.
+          </p>
+
+          <div class="mt-6 rounded-lg border border-border bg-surface p-4">
+            <div class="font-mono text-xs text-faint">save this — it is shown once</div>
+            <div class="mt-2 flex items-center gap-3">
+              <code class="min-w-0 flex-1 truncate font-mono text-sm text-accent">${escape(created.ownerToken)}</code>
+              <button id="copy-token" class="shrink-0 rounded-md border border-border px-2 py-1 font-mono text-[11px] text-muted transition hover:text-accent">Copy</button>
+            </div>
+            <p class="mt-2 text-xs text-faint">The owner token is the only way to edit this listing later.</p>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="/agent?slug=${encodeURIComponent(created.listing.slug)}"
+               class="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-bg transition hover:bg-accent-dim">View listing</a>
+            <a href="/#browse" class="rounded-full border border-border px-5 py-2.5 text-sm text-text transition hover:border-accent/50">Back to marketplace</a>
+          </div>
+        </div>`;
+
+      document.getElementById("copy-token")!.addEventListener("click", async (e) => {
+        await navigator.clipboard.writeText(created.ownerToken);
+        (e.target as HTMLElement).textContent = "Copied";
+      });
+    } catch (err) {
+      submit.disabled = false;
+      if (err instanceof ListingRejected) {
+        status.innerHTML = err.errors
+          .map((e) => `<span class="block text-red-400">${escape(e.message)}</span>`)
+          .join("");
+      } else if (err instanceof GatewayDown) {
+        status.innerHTML = `<span class="text-red-400">Can't reach the marketplace at ${site.apiBase}. Start it with <code class="font-mono">npm run dev</code>.</span>`;
+      } else {
+        status.innerHTML = `<span class="text-red-400">${escape((err as Error).message)}</span>`;
+      }
+    }
+  });
+</script>

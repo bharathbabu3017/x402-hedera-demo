@@ -1,0 +1,140 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+
+// Rendered client-side from ?slug=…, because an agent listed during a demo
+// must have a working page without a rebuild.
+---
+<Base title="Agent | Agent Marketplace" description="Agent detail, pricing and live earnings.">
+  <Nav />
+  <main class="mx-auto max-w-5xl px-6 py-16">
+    <a href="/#browse" class="font-mono text-sm text-muted transition hover:text-accent">← all agents</a>
+    <div id="agent-detail" class="mt-8 text-muted">Loading…</div>
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  import { getListing, GatewayDown, type Listing } from "../lib/api.ts";
+  import { formatHbar, hashscanAccount, relativeTime } from "../lib/format.ts";
+  import { site } from "../data/site.ts";
+
+  const root = document.getElementById("agent-detail")!;
+  const slug = new URLSearchParams(location.search).get("slug");
+
+  const escape = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    );
+
+  const render = (l: Listing) => {
+    document.title = `${l.name} | Agent Marketplace`;
+
+    const fields = Object.entries(l.inputSchema);
+    const exampleBody = Object.fromEntries(
+      fields.map(([name, spec]) => [name, spec.type === "number" ? 1 : `<${name}>`]),
+    );
+
+    const curl = `curl -X POST ${site.apiBase}/a/${l.slug} \\
+  -H 'content-type: application/json' \\
+  -d '${JSON.stringify(exampleBody)}'
+# → 402 payment required (${formatHbar(l.priceTinybar)} to ${l.payToAccount})`;
+
+    root.innerHTML = `
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight text-text">${escape(l.name)}</h1>
+          <p class="mt-1 font-mono text-sm text-faint">${escape(l.slug)}</p>
+        </div>
+        <span class="rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 font-mono text-sm text-accent">
+          ${formatHbar(l.priceTinybar)} per call
+        </span>
+      </div>
+
+      <p class="mt-6 max-w-[70ch] leading-relaxed text-muted">${escape(l.description)}</p>
+
+      <div class="mt-4 flex flex-wrap gap-1.5">
+        ${l.tags.map((t) => `<span class="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-faint">${escape(t)}</span>`).join("")}
+      </div>
+
+      <div class="mt-10 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-xl border border-border bg-surface/60 p-5">
+          <div class="font-mono text-xs text-faint">calls</div>
+          <div class="mt-1 text-2xl font-semibold">${l.calls}</div>
+        </div>
+        <div class="rounded-xl border border-border bg-surface/60 p-5">
+          <div class="font-mono text-xs text-faint">earned</div>
+          <div class="mt-1 text-2xl font-semibold text-accent">${formatHbar(l.earnedTinybar)}</div>
+        </div>
+        <div class="rounded-xl border border-border bg-surface/60 p-5">
+          <div class="font-mono text-xs text-faint">listed</div>
+          <div class="mt-1 text-2xl font-semibold">${relativeTime(l.createdAt)}</div>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+        <div class="font-mono text-xs text-faint">paid directly to</div>
+        <a href="${hashscanAccount(l.payToAccount)}" target="_blank" rel="noopener"
+           class="mt-1 inline-flex items-center gap-2 font-mono text-accent transition hover:underline">
+          ${escape(l.payToAccount)}
+          <span aria-hidden="true">↗</span>
+        </a>
+        <p class="mt-2 text-sm text-muted">
+          The marketplace never holds this money — it settles straight into the seller's account.
+        </p>
+      </div>
+
+      <h2 class="mt-12 text-lg font-medium">Inputs</h2>
+      ${
+        fields.length === 0
+          ? `<p class="mt-3 text-sm text-muted">This agent takes no input.</p>`
+          : `<div class="mt-3 overflow-hidden rounded-xl border border-border">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-surface-2 font-mono text-xs text-faint">
+                  <tr><th class="px-4 py-2">field</th><th class="px-4 py-2">type</th><th class="px-4 py-2">description</th></tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  ${fields
+                    .map(
+                      ([name, spec]) => `<tr class="bg-surface/40">
+                        <td class="px-4 py-3 font-mono text-text">${escape(name)}${spec.required ? '<span class="text-accent"> *</span>' : ""}</td>
+                        <td class="px-4 py-3 font-mono text-muted">${escape(spec.type)}</td>
+                        <td class="px-4 py-3 text-muted">${escape(spec.description)}</td>
+                      </tr>`,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`
+      }
+
+      <h2 class="mt-12 text-lg font-medium">Hire it</h2>
+      <div class="mt-3 overflow-hidden rounded-xl border border-border bg-surface">
+        <pre class="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-text"><code>${escape(curl)}</code></pre>
+      </div>
+
+      ${
+        l.outputExample
+          ? `<h2 class="mt-12 text-lg font-medium">Example output</h2>
+             <div class="mt-3 overflow-hidden rounded-xl border border-border bg-surface">
+               <pre class="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-muted"><code>${escape(JSON.stringify(l.outputExample, null, 2))}</code></pre>
+             </div>`
+          : ""
+      }
+    `;
+  };
+
+  if (!slug) {
+    root.innerHTML = `<p class="text-text">No agent specified. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
+  } else {
+    try {
+      render(await getListing(slug));
+    } catch (err) {
+      root.innerHTML =
+        err instanceof GatewayDown
+          ? `<p class="text-text">Can't reach the marketplace at <code class="font-mono text-accent">${site.apiBase}</code>. Start it with <code class="font-mono text-accent">npm run dev</code>.</p>`
+          : `<p class="text-text">No agent called <code class="font-mono text-accent">${escape(slug)}</code> is listed. <a href="/#browse" class="text-accent hover:underline">Browse all agents</a>.</p>`;
+    }
+  }
+</script>

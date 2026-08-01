@@ -1,9 +1,9 @@
 ---
 const rows = [
-  { dir: "out", method: "GET", text: "/data/spot-price?symbol=AAPL", note: "client request, no key" },
-  { dir: "in", status: "402", text: "payment required", note: "0.01 HBAR · payTo 0.0.4515756" },
-  { dir: "out", method: "SIGN", text: "transfer 0.01 HBAR", note: "facilitator pays the network fee" },
-  { dir: "in", status: "200", text: '{ "price": 312.87 }', note: "settled on Hedera" },
+  { dir: "out", method: "POST", text: "/a/sentiment", note: "buying agent, no account" },
+  { dir: "in", status: "402", text: "payment required", note: "0.02 ℏ · payTo 0.0.9864248" },
+  { dir: "out", method: "SIGN", text: "transfer 0.02 ℏ", note: "facilitator pays the network fee" },
+  { dir: "in", status: "200", text: '{ "sentiment": "positive" }', note: "seller paid directly" },
 ];
 ---
 <div
@@ -14,7 +14,7 @@ const rows = [
     <span class="size-2.5 rounded-full bg-border"></span>
     <span class="size-2.5 rounded-full bg-border"></span>
     <span class="size-2.5 rounded-full bg-border"></span>
-    <span class="ml-2 font-mono text-xs text-faint">agent &rarr; x402.hedera</span>
+    <span class="ml-2 font-mono text-xs text-faint">buying agent &rarr; marketplace</span>
   </div>
 
   <div class="flex flex-col gap-2 p-4">

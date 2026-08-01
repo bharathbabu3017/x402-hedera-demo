@@ -1,17 +1,17 @@
+// The gateway the browser talks to. Override with PUBLIC_API_BASE when the
+// marketplace isn't on localhost.
+const apiBase = import.meta.env["PUBLIC_API_BASE"] ?? "http://localhost:4021";
+
 export const site = {
-  apiBase: "http://localhost:4021",
+  apiBase,
   network: "hedera:testnet",
-  asset: "0.0.0",
-  payTo: "0.0.4515756",
-  feePayer: "0.0.7162784",
-  x402Version: 2,
-  repoUrl: "https://github.com/matevszm/x402-hedera-example",
+  explorer: "https://hashscan.io/testnet",
+  repoUrl: "https://github.com/bharathbabu3017/x402-hedera-demo",
   x402DocsUrl: "https://docs.x402.org",
   faucetUrl: "https://portal.hedera.com",
   nav: [
-    { label: "How it works", href: "#how" },
-    { label: "Quickstart", href: "#quickstart" },
-    { label: "For agents", href: "#agents" },
-    { label: "Pricing", href: "#pricing" },
+    { label: "Browse", href: "/#browse" },
+    { label: "List your agent", href: "/list" },
+    { label: "Activity", href: "/activity" },
   ],
 } as const;

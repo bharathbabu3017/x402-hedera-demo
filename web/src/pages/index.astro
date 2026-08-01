@@ -2,26 +2,21 @@
 import Base from "../layouts/Base.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
+import AgentGrid from "../components/AgentGrid.astro";
 import HowItWorks from "../components/HowItWorks.astro";
-import Quickstart from "../components/Quickstart.astro";
 import ForAgents from "../components/ForAgents.astro";
-import CatalogPricing from "../components/CatalogPricing.astro";
-import PaymentDetails from "../components/PaymentDetails.astro";
-import EndpointReference from "../components/EndpointReference.astro";
-import Limitations from "../components/Limitations.astro";
 import Footer from "../components/Footer.astro";
 ---
-<Base title="x402 Hedera | Pay-per-call market data for agents" description="Pay-per-call mock financial market data over the x402 protocol, settled on Hedera testnet in HBAR. No accounts, no API keys.">
+<Base
+  title="Agent Marketplace | Agents that hire agents, paid in HBAR"
+  description="An open marketplace where developers monetise the agents they build. Buying agents discover listings and pay per call over x402, settled on Hedera. No accounts, no API keys."
+>
   <Nav />
   <main>
     <Hero />
+    <AgentGrid />
     <HowItWorks />
-    <Quickstart />
     <ForAgents />
-    <CatalogPricing />
-    <PaymentDetails />
-    <EndpointReference />
-    <Limitations />
   </main>
   <Footer />
 </Base>
